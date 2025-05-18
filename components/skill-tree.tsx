@@ -26,10 +26,9 @@ interface SkillNode {
 interface SkillTreeProps {
   nodes: SkillNode[]
   onNodeSelect: (node: SkillNode) => void
-  onNodeComplete: (nodeId: string) => void
 }
 
-export function SkillTree({ nodes, onNodeSelect, onNodeComplete }: SkillTreeProps) {
+export function SkillTree({ nodes, onNodeSelect }: SkillTreeProps) {
   const [selectedNode, setSelectedNode] = useState<SkillNode | null>(null)
   const [xpBursts, setXpBursts] = useState<{ id: string; x: number; y: number; value: number }[]>([])
   const svgRef = useRef<SVGSVGElement>(null)
@@ -39,124 +38,6 @@ export function SkillTree({ nodes, onNodeSelect, onNodeComplete }: SkillTreeProp
     if (node.locked) return
     setSelectedNode(node)
     onNodeSelect(node)
-  }
-
-  // Handle node completion
-  const handleNodeComplete = (node: SkillNode, event: React.MouseEvent) => {
-    event.stopPropagation()
-    if (node.completed || node.locked) return
-
-    // Create XP burst animation
-    const rect = (event.target as HTMLElement).getBoundingClientRect()
-    const svgRect = svgRef.current?.getBoundingClientRect()
-
-    if (svgRect) {
-      const x = rect.left - svgRect.left + rect.width / 2
-      const y = rect.top - svgRect.top + rect.height / 2
-
-      const newBurst = {
-        id: `burst-${Date.now()}`,
-        x,
-        y,
-        value: node.xp,
-      }
-
-      setXpBursts((prev) => [...prev, newBurst])
-
-      // Create confetti effect
-      createConfetti(x, y)
-
-      // Add sci-fi completion animation to the node
-      const nodeElement = document.querySelector(`g[data-node-id="${node.id}"]`)
-      if (nodeElement) {
-        nodeElement.classList.add("quest-complete-animation")
-
-        // Create energy field effect
-        const energyField = document.createElementNS("http://www.w3.org/2000/svg", "circle")
-        energyField.setAttribute("r", "45")
-        energyField.setAttribute("fill", "none")
-        energyField.setAttribute("stroke", node.color)
-        energyField.setAttribute("stroke-width", "2")
-        energyField.setAttribute("opacity", "0.6")
-        energyField.classList.add("energy-field")
-        nodeElement.appendChild(energyField)
-
-        // Create orbital particles
-        for (let i = 0; i < 5; i++) {
-          const particle = document.createElementNS("http://www.w3.org/2000/svg", "circle")
-          particle.setAttribute("r", "3")
-          particle.setAttribute("fill", i % 2 === 0 ? node.color : "#FFFFFF")
-          particle.setAttribute("opacity", "0.8")
-          particle.style.animationDelay = `${i * 0.2}s`
-          particle.classList.add("orbital-particle")
-          nodeElement.appendChild(particle)
-        }
-
-        // Create a pulse wave
-        const pulseWave = document.createElementNS("http://www.w3.org/2000/svg", "circle")
-        pulseWave.setAttribute("r", "0")
-        pulseWave.setAttribute("fill", "none")
-        pulseWave.setAttribute("stroke", node.color)
-        pulseWave.setAttribute("stroke-width", "3")
-        pulseWave.setAttribute("opacity", "0.8")
-        nodeElement.appendChild(pulseWave)
-
-        // Animate the pulse wave
-        const pulseAnimation = pulseWave.animate(
-          [
-            { r: 0, opacity: 0.8 },
-            { r: 100, opacity: 0 },
-          ],
-          {
-            duration: 1500,
-            easing: "ease-out",
-          },
-        )
-
-        // Remove animation class after it completes
-        setTimeout(() => {
-          nodeElement.classList.remove("quest-complete-animation")
-          energyField.remove()
-          pulseWave.remove()
-          // Keep the orbital particles for completed nodes
-        }, 1500)
-      }
-
-      // Remove burst after animation completes
-      setTimeout(() => {
-        setXpBursts((prev) => prev.filter((burst) => burst.id !== newBurst.id))
-      }, 1000)
-    }
-
-    onNodeComplete(node.id)
-  }
-
-  // Add a function to create confetti
-  const createConfetti = (x: number, y: number) => {
-    const confettiCount = 30
-    const confettiColors = ["#9333EA", "#00FFFF", "#34D399"]
-
-    for (let i = 0; i < confettiCount; i++) {
-      const confetti = document.createElement("div")
-      confetti.className = "confetti"
-      confetti.style.left = `${x}px`
-      confetti.style.top = `${y}px`
-      confetti.style.backgroundColor = confettiColors[Math.floor(Math.random() * confettiColors.length)]
-      confetti.style.animationDuration = `${1 + Math.random()}s`
-      confetti.style.animationDelay = `${Math.random() * 0.5}s`
-
-      // Random direction
-      const angle = Math.random() * Math.PI * 2
-      const distance = 50 + Math.random() * 50
-      confetti.style.transform = `translate(${Math.cos(angle) * distance}px, ${Math.sin(angle) * distance}px) rotate(${Math.random() * 360}deg)`
-
-      svgRef.current?.parentElement?.appendChild(confetti)
-
-      // Remove confetti after animation
-      setTimeout(() => {
-        confetti.remove()
-      }, 2000)
-    }
   }
 
   // Draw connections between nodes
@@ -284,7 +165,7 @@ export function SkillTree({ nodes, onNodeSelect, onNodeComplete }: SkillTreeProp
                         />
                       )}
 
-                      {/* Node icon - Fix the check icon appearing on incomplete nodes */}
+                      {/* Node icon */}
                       <foreignObject x="-15" y="-15" width="30" height="30" className="pointer-events-none">
                         <div className="flex items-center justify-center w-full h-full text-white">
                           {node.locked ? (
@@ -314,25 +195,6 @@ export function SkillTree({ nodes, onNodeSelect, onNodeComplete }: SkillTreeProp
                       >
                         {node.title}
                       </text>
-
-                      {/* Complete button - only show for nodes that are ready to complete */}
-                      {!node.completed &&
-                        !node.locked &&
-                        node.parentIds.every((parentId) => {
-                          const parent = nodes.find((n) => n.id === parentId)
-                          return parent?.completed
-                        }) && (
-                          <foreignObject x="-15" y="-50" width="30" height="30">
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              className="h-6 w-6 rounded-full bg-background/50 border-primary hover:bg-primary hover:text-primary-foreground"
-                              onClick={(e) => handleNodeComplete(node, e)}
-                            >
-                              <Check className="h-3 w-3" />
-                            </Button>
-                          </foreignObject>
-                        )}
 
                       {/* XP indicator for completed nodes */}
                       {node.completed && (

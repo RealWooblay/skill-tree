@@ -11,6 +11,40 @@ import { SkillTreeSelector, type SkillTreeInfo } from "@/components/skill-tree-s
 import { NodeCompletionAnimation } from "@/components/node-completion-animation"
 import { generateQuests } from "@/utils/generateQuests" // Import generateQuests
 
+// Add type definitions at the top
+type NodeType = "default" | "theory" | "practical" | "test"
+
+interface Position {
+  x: number
+  y: number
+}
+
+interface SkillNode {
+  id: string
+  title: string
+  description: string
+  level: number
+  position: Position
+  completed: boolean
+  locked: boolean
+  parentIds: string[]
+  color: string
+  xp: number
+  type: NodeType
+}
+
+interface Quest {
+  id: string
+  nodeId: string
+  title: string
+  description: string
+  completed: boolean
+}
+
+interface CompletedQuestsMap {
+  [key: string]: boolean
+}
+
 // Update the initialNodes to include node types
 const initialNodes = [
   {
@@ -483,18 +517,18 @@ const skillTreeInfos: SkillTreeInfo[] = [
   },
 ]
 
-// Create a map of skill tree nodes
-const skillTreeNodes = {
-  "personal-growth": initialNodes,
-  programming: programmingNodes,
-  language: languageNodes,
+// Update the skillTreeNodes type
+const skillTreeNodes: { [key: string]: SkillNode[] } = {
+  "personal-growth": initialNodes as SkillNode[],
+  programming: programmingNodes as SkillNode[],
+  language: languageNodes as SkillNode[],
 }
 
 export default function SkillTreePage() {
   const [activeTreeId, setActiveTreeId] = useState("personal-growth")
-  const [nodes, setNodes] = useState(skillTreeNodes[activeTreeId as keyof typeof skillTreeNodes])
-  const [selectedNode, setSelectedNode] = useState<any | null>(null)
-  const [quests, setQuests] = useState<any[]>([])
+  const [nodes, setNodes] = useState<SkillNode[]>(skillTreeNodes[activeTreeId])
+  const [selectedNode, setSelectedNode] = useState<SkillNode | null>(null)
+  const [quests, setQuests] = useState<Quest[]>([])
   const [xp, setXp] = useState(50) // Starting XP from completed root node
   const [level, setLevel] = useState(1)
   const [maxXp, setMaxXp] = useState(200) // XP needed for level 2
@@ -505,12 +539,126 @@ export default function SkillTreePage() {
     xpGained: number
   }>({ visible: false, nodeTitle: "", xpGained: 0 })
 
+  // Load completed quests from localStorage
+  useEffect(() => {
+    const savedQuests = localStorage.getItem('completedQuests')
+    if (savedQuests) {
+      try {
+        const parsedQuests = JSON.parse(savedQuests) as CompletedQuestsMap
+        setQuests(prevQuests => {
+          return prevQuests.map(quest => ({
+            ...quest,
+            completed: parsedQuests[quest.id] || false
+          }))
+        })
+      } catch (error) {
+        console.error('Error loading completed quests:', error)
+      }
+    }
+  }, [selectedNode])
+
   // Initialize quests when a node is selected
   useEffect(() => {
     if (selectedNode) {
-      setQuests(generateQuests(selectedNode.id))
+      const savedQuests = localStorage.getItem('completedQuests')
+      const completedQuests = savedQuests ? JSON.parse(savedQuests) as CompletedQuestsMap : {}
+
+      const generatedQuests = generateQuests(selectedNode.id).map(quest => ({
+        ...quest,
+        nodeId: selectedNode.id, // Ensure nodeId is set
+        completed: completedQuests[quest.id] || false
+      })) as Quest[]
+
+      setQuests(generatedQuests)
     }
   }, [selectedNode])
+
+  // Save completed quests to localStorage
+  const saveCompletedQuests = (updatedQuests: Quest[]) => {
+    const completedQuests = updatedQuests.reduce<CompletedQuestsMap>((acc, quest) => {
+      if (quest.completed) {
+        acc[quest.id] = true
+      }
+      return acc
+    }, {})
+    localStorage.setItem('completedQuests', JSON.stringify(completedQuests))
+  }
+
+  // Handle quest completion
+  const handleQuestComplete = (questId: string) => {
+    if (!selectedNode) return
+
+    setQuests((prevQuests) => {
+      const updatedQuests = prevQuests.map((quest) => {
+        if (quest.id === questId) {
+          return { ...quest, completed: true }
+        }
+        return quest
+      })
+
+      // Save to localStorage
+      saveCompletedQuests(updatedQuests)
+
+      // Check if all quests for this node are completed
+      const nodeQuests = updatedQuests.filter(quest => quest.nodeId === selectedNode.id)
+      const allQuestsCompleted = nodeQuests.length > 0 && nodeQuests.every(quest => quest.completed)
+
+      if (allQuestsCompleted) {
+        // Complete the node
+        setNodes(prevNodes => {
+          const updatedNodes = prevNodes.map(node => {
+            if (node.id === selectedNode.id) {
+              // Mark this node as completed
+              return { ...node, completed: true }
+            }
+
+            // Unlock child nodes if their parents are completed
+            if (node.locked && node.parentIds.includes(selectedNode.id)) {
+              const allParentsCompleted = node.parentIds.every(parentId => {
+                const parent = prevNodes.find(n => n.id === parentId)
+                return parent?.completed || parentId === selectedNode.id
+              })
+
+              if (allParentsCompleted) {
+                return { ...node, locked: false }
+              }
+            }
+
+            return node
+          })
+
+          // Update global state
+          skillTreeNodes[activeTreeId] = updatedNodes
+
+          // Update skill tree info
+          setSkillTrees(prev =>
+            prev.map(tree =>
+              tree.id === activeTreeId
+                ? { ...tree, completedNodes: tree.completedNodes + 1 }
+                : tree
+            )
+          )
+
+          return updatedNodes
+        })
+
+        // Add XP for completing the node
+        setXp(prev => prev + selectedNode.xp)
+
+        // Show completion animation
+        setCompletedNodeAnimation({
+          visible: true,
+          nodeTitle: selectedNode.title,
+          xpGained: selectedNode.xp,
+        })
+      }
+
+      // Add XP for completing the quest
+      setXp(prev => prev + 25)
+
+      return updatedQuests
+    })
+  }
 
   // Calculate level based on XP
   useEffect(() => {
@@ -523,12 +671,12 @@ export default function SkillTreePage() {
 
   // Update nodes when active tree changes
   useEffect(() => {
-    setNodes(skillTreeNodes[activeTreeId as keyof typeof skillTreeNodes])
+    setNodes(skillTreeNodes[activeTreeId])
     setSelectedNode(null)
   }, [activeTreeId])
 
   // Handle node selection
-  const handleNodeSelect = (node: any) => {
+  const handleNodeSelect = (node: SkillNode) => {
     setSelectedNode(node)
   }
 
@@ -578,23 +726,6 @@ export default function SkillTreePage() {
     })
   }
 
-  // Handle quest completion
-  const handleQuestComplete = (questId: string) => {
-    setQuests((prevQuests) => {
-      const updatedQuests = prevQuests.map((quest) => {
-        if (quest.id === questId) {
-          return { ...quest, completed: true }
-        }
-        return quest
-      })
-
-      // Add a small XP reward for completing a quest
-      setXp((prev) => prev + 25)
-
-      return updatedQuests
-    })
-  }
-
   // Calculate quest progress percentage
   const calculateProgress = () => {
     if (quests.length === 0) return 0
@@ -614,32 +745,32 @@ export default function SkillTreePage() {
       description,
       category,
       lastUpdated: "Just now",
-      nodeCount: 1, // Start with just the root node
-      completedNodes: 1, // Root node is completed by default
+      nodeCount: 1,
+      completedNodes: 1,
     }
 
     // Add basic root node
-    const newNodes = [
-      {
-        id: `${id}-root`,
-        title: "Getting Started",
-        description: "The foundation of your journey",
-        level: 0,
-        position: { x: 500, y: 100 },
-        completed: true,
-        locked: false,
-        parentIds: [],
-        color: "#9333EA", // primary
-        xp: 50,
-        type: "default",
-      },
-    ]
+    const rootNode: SkillNode = {
+      id: `${id}-root`,
+      title: "Getting Started",
+      description: "The foundation of your journey",
+      level: 0,
+      position: { x: 500, y: 100 },
+      completed: true,
+      locked: false,
+      parentIds: [],
+      color: "#9333EA",
+      xp: 50,
+      type: "default" as NodeType,
+    }
+
+    const newNodes = [rootNode]
 
     // Update skill tree nodes
-    setSkillTrees((prev) => [...prev, newTree])
-
-    // Update the skillTreeNodes object with the new nodes
     skillTreeNodes[id] = newNodes
+
+    // Update skill trees
+    setSkillTrees((prev) => [...prev, newTree])
 
     // Switch to the new tree
     setActiveTreeId(id)
@@ -669,37 +800,39 @@ export default function SkillTreePage() {
             description: `Skills related to ${newTreeTitle}`,
             category,
             lastUpdated: "Just now",
-            nodeCount: 1, // Start with just the root node
-            completedNodes: 1, // Root node is completed by default
+            nodeCount: 1,
+            completedNodes: 1,
           }
 
           // Add basic root node
-          skillTreeNodes[id] = [
-            {
-              id: `${id}-root`,
-              title: "Getting Started",
-              description: `The foundation of your ${newTreeTitle} journey`,
-              level: 0,
-              position: { x: 500, y: 100 },
-              completed: true,
-              locked: false,
-              parentIds: [],
-              color: "#9333EA", // primary
-              xp: 50,
-              type: "default",
-            },
-          ]
+          const rootNode: SkillNode = {
+            id: `${id}-root`,
+            title: "Getting Started",
+            description: `The foundation of your ${newTreeTitle} journey`,
+            level: 0,
+            position: { x: 500, y: 100 },
+            completed: true,
+            locked: false,
+            parentIds: [],
+            color: "#9333EA",
+            xp: 50,
+            type: "default" as NodeType,
+          }
+
+          skillTreeNodes[id] = [rootNode]
 
           // Add some initial nodes based on the responses
           if (responses.length > 2 && responses[2]) {
-            const skills = responses[2]
+            const skills = (responses[2] as string)
               .split(",")
-              .map((s) => s.trim())
+              .map((s: string) => s.trim())
               .filter(Boolean)
 
-            skills.slice(0, 3).forEach((skill, index) => {
+            skills.slice(0, 3).forEach((skill: string, index: number) => {
               const nodeId = `${id}-skill-${index}`
-              skillTreeNodes[id].push({
+              const nodeType: NodeType = index % 3 === 0 ? "theory" : index % 3 === 1 ? "practical" : "test"
+
+              const skillNode: SkillNode = {
                 id: nodeId,
                 title: skill,
                 description: `Learn and master ${skill}`,
@@ -708,10 +841,12 @@ export default function SkillTreePage() {
                 completed: false,
                 locked: false,
                 parentIds: [`${id}-root`],
-                color: "#00FFFF", // secondary
+                color: "#00FFFF",
                 xp: 100,
-                type: index % 3 === 0 ? "theory" : index % 3 === 1 ? "practical" : "test",
-              })
+                type: nodeType,
+              }
+
+              skillTreeNodes[id].push(skillNode)
             })
 
             // Update node count
@@ -754,7 +889,7 @@ export default function SkillTreePage() {
 
       {/* Skill Tree */}
       <div className="flex-1 w-full h-full">
-        <SkillTree nodes={nodes} onNodeSelect={handleNodeSelect} onNodeComplete={handleNodeComplete} />
+        <SkillTree nodes={nodes} onNodeSelect={handleNodeSelect} />
       </div>
 
       {/* Quest Panel */}
@@ -769,7 +904,7 @@ export default function SkillTreePage() {
               progress={calculateProgress()}
               onComplete={handleQuestComplete}
               onClose={() => setSelectedNode(null)}
-              nodeId={selectedNode.id} // Add this line to pass the nodeId
+              nodeId={selectedNode.id}
             />
           </div>
         )}

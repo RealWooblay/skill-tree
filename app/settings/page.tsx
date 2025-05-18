@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { motion } from "framer-motion"
-import { Bell, Moon, Volume2, VolumeX, Eye, RefreshCw } from "lucide-react"
+import { Bell, Volume2, VolumeX } from "lucide-react"
 import { ParticleBackground } from "@/components/particles"
 import { Navigation } from "@/components/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -15,12 +15,9 @@ import { Separator } from "@/components/ui/separator"
 export default function SettingsPage() {
   // Settings state
   const [settings, setSettings] = useState({
-    darkMode: true,
     notifications: true,
     soundEffects: true,
     soundVolume: 80,
-    particleEffects: true,
-    animationSpeed: 1.0,
     resetProgress: false,
   })
 
@@ -56,56 +53,6 @@ export default function SettingsPage() {
         </motion.div>
 
         <Card className="bg-card/50 backdrop-blur-sm border-primary/20">
-          <CardHeader>
-            <CardTitle className="text-lg text-secondary">Appearance</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Moon className="h-5 w-5 text-primary" />
-                <div>
-                  <Label className="text-sm font-medium">Dark Mode</Label>
-                  <p className="text-xs text-muted-foreground">Always use dark theme</p>
-                </div>
-              </div>
-              <Switch checked={settings.darkMode} onCheckedChange={() => handleToggle("darkMode")} />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Eye className="h-5 w-5 text-primary" />
-                <div>
-                  <Label className="text-sm font-medium">Particle Effects</Label>
-                  <p className="text-xs text-muted-foreground">Show ambient particle animations</p>
-                </div>
-              </div>
-              <Switch checked={settings.particleEffects} onCheckedChange={() => handleToggle("particleEffects")} />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center gap-3">
-                <RefreshCw className="h-5 w-5 text-primary" />
-                <Label className="text-sm font-medium">Animation Speed</Label>
-              </div>
-              <div className="pt-2">
-                <Slider
-                  defaultValue={[settings.animationSpeed * 100]}
-                  max={200}
-                  min={50}
-                  step={10}
-                  onValueChange={(value) => handleSliderChange("animationSpeed", [value[0] / 100])}
-                />
-                <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                  <span>Slower</span>
-                  <span>Normal</span>
-                  <span>Faster</span>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card/50 backdrop-blur-sm border-primary/20 mt-6">
           <CardHeader>
             <CardTitle className="text-lg text-secondary">Notifications</CardTitle>
           </CardHeader>

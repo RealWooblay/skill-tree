@@ -61,27 +61,6 @@ export function QuestPanel({
           // Add the winning animation class
           nodeElement.classList.add("node-win-animation")
 
-          // Create energy field effect
-          const energyField = document.createElementNS("http://www.w3.org/2000/svg", "circle")
-          energyField.setAttribute("r", "45")
-          energyField.setAttribute("fill", "none")
-          energyField.setAttribute("stroke", "#00FFFF")
-          energyField.setAttribute("stroke-width", "2")
-          energyField.setAttribute("opacity", "0.6")
-          energyField.classList.add("energy-field")
-          nodeElement.appendChild(energyField)
-
-          // Create orbital particles
-          for (let i = 0; i < 5; i++) {
-            const particle = document.createElementNS("http://www.w3.org/2000/svg", "circle")
-            particle.setAttribute("r", "3")
-            particle.setAttribute("fill", i % 2 === 0 ? "#00FFFF" : "#9333EA")
-            particle.setAttribute("opacity", "0.8")
-            particle.style.animationDelay = `${i * 0.2}s`
-            particle.classList.add("orbital-particle")
-            nodeElement.appendChild(particle)
-          }
-
           // Create a pulse wave
           const pulseWave = document.createElementNS("http://www.w3.org/2000/svg", "circle")
           pulseWave.setAttribute("r", "0")
@@ -103,47 +82,10 @@ export function QuestPanel({
             },
           )
 
-          // Create confetti effect
-          const svgRect = nodeElement.getBoundingClientRect()
-          if (svgRect) {
-            const confettiCount = 30
-            const confettiColors = ["#9333EA", "#00FFFF", "#34D399"]
-
-            for (let i = 0; i < confettiCount; i++) {
-              const confetti = document.createElement("div")
-              confetti.className = "confetti"
-              confetti.style.position = "fixed"
-              confetti.style.left = `${svgRect.left + svgRect.width / 2}px`
-              confetti.style.top = `${svgRect.top + svgRect.height / 2}px`
-              confetti.style.width = "8px"
-              confetti.style.height = "8px"
-              confetti.style.backgroundColor = confettiColors[Math.floor(Math.random() * confettiColors.length)]
-              confetti.style.borderRadius = "50%"
-              confetti.style.zIndex = "1000"
-
-              // Random direction
-              const angle = Math.random() * Math.PI * 2
-              const distance = 50 + Math.random() * 100
-              confetti.style.transform = `translate(${Math.cos(angle) * distance}px, ${Math.sin(angle) * distance}px)`
-
-              // Animation
-              confetti.style.animation = `confetti-fall ${1 + Math.random()}s forwards`
-              confetti.style.animationDelay = `${Math.random() * 0.5}s`
-
-              document.body.appendChild(confetti)
-
-              // Remove confetti after animation
-              setTimeout(() => {
-                confetti.remove()
-              }, 2000)
-            }
-          }
-
           // Remove animation class and elements after animation completes
           setTimeout(() => {
             nodeElement.classList.remove("node-win-animation")
             pulseWave.remove()
-            // Keep the energy field and orbital particles for completed nodes
           }, 2000)
         }
       }, 300)
