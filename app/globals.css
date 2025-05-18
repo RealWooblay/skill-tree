@@ -1,0 +1,252 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 263 75% 63%;
+    --primary-foreground: 0 0% 98%;
+
+    --secondary: 180 100% 50%;
+    --secondary-foreground: 240 5.9% 10%;
+
+    --accent: 142 71% 45%;
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 263 75% 63%;
+
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+.glow-text {
+  text-shadow: 0 0 10px currentColor;
+}
+
+.glow-sm {
+  filter: drop-shadow(0 0 5px currentColor);
+}
+
+.glow-md {
+  filter: drop-shadow(0 0 10px currentColor);
+}
+
+.glow-lg {
+  filter: drop-shadow(0 0 15px currentColor);
+}
+
+/* Remove the skill-node class styling since we're handling hover with JS now */
+
+.skill-node.completed {
+  animation: pulse 2s infinite;
+}
+
+/* Enhanced sci-fi completion animation */
+@keyframes nodeComplete {
+  0% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  20% {
+    transform: scale(1.2);
+    filter: brightness(1.5) drop-shadow(0 0 15px currentColor);
+  }
+  40% {
+    transform: scale(0.95);
+    filter: brightness(1.2) drop-shadow(0 0 10px currentColor);
+  }
+  60% {
+    transform: scale(1.1);
+    filter: brightness(1.4) drop-shadow(0 0 12px currentColor);
+  }
+  80% {
+    transform: scale(0.98);
+    filter: brightness(1.1) drop-shadow(0 0 8px currentColor);
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1) drop-shadow(0 0 10px currentColor);
+  }
+}
+
+/* Improved sci-fi animation for node completion */
+.node-complete-animation {
+  animation: nodeComplete 1.2s forwards;
+}
+
+/* Energy field animation for completed nodes */
+.energy-field {
+  opacity: 0;
+  stroke-dasharray: 150;
+  stroke-dashoffset: 150;
+  animation: energyField 2s forwards;
+}
+
+@keyframes energyField {
+  0% {
+    opacity: 0.8;
+    stroke-dashoffset: 150;
+  }
+  100% {
+    opacity: 0.4;
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Add a more dramatic sci-fi animation for quest completion */
+@keyframes questComplete {
+  0% {
+    opacity: 0.8;
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  25% {
+    opacity: 1;
+    transform: scale(1.5);
+    filter: brightness(2) hue-rotate(20deg);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(0.8);
+    filter: brightness(1.5) hue-rotate(-20deg);
+  }
+  75% {
+    opacity: 1;
+    transform: scale(1.2);
+    filter: brightness(1.8) hue-rotate(10deg);
+  }
+  100% {
+    opacity: 0.8;
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
+.quest-complete-animation {
+  animation: questComplete 1.5s forwards;
+}
+
+/* Orbital particles for completed nodes */
+.orbital-particle {
+  animation: orbit 4s linear infinite;
+  transform-origin: center;
+}
+
+@keyframes orbit {
+  0% {
+    transform: rotate(0deg) translateX(40px) rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg) translateX(40px) rotate(-360deg);
+  }
+}
+
+/* Add confetti animation */
+.confetti {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  opacity: 0;
+  transform: translateY(0);
+  animation: confetti-fall 2s forwards;
+}
+
+@keyframes confetti-fall {
+  0% {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(100px) rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0% {
+    filter: drop-shadow(0 0 5px currentColor);
+  }
+  50% {
+    filter: drop-shadow(0 0 15px currentColor);
+  }
+  100% {
+    filter: drop-shadow(0 0 5px currentColor);
+  }
+}
+
+.xp-burst {
+  animation: xpBurst 1s forwards;
+  opacity: 0;
+  position: absolute;
+}
+
+@keyframes xpBurst {
+  0% {
+    opacity: 1;
+    transform: scale(0.5) translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.5) translateY(-20px);
+  }
+}
+
+.particles-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Add a dramatic winning animation for node completion */
+@keyframes nodeWin {
+  0% {
+    filter: brightness(1) drop-shadow(0 0 5px currentColor);
+  }
+  20% {
+    filter: brightness(2) drop-shadow(0 0 20px currentColor);
+  }
+  40% {
+    filter: brightness(1.5) drop-shadow(0 0 15px currentColor);
+  }
+  60% {
+    filter: brightness(2.5) drop-shadow(0 0 25px currentColor);
+  }
+  80% {
+    filter: brightness(1.8) drop-shadow(0 0 18px currentColor);
+  }
+  100% {
+    filter: brightness(1.2) drop-shadow(0 0 10px currentColor);
+  }
+}
+
+.node-win-animation {
+  animation: nodeWin 2s forwards;
+}
