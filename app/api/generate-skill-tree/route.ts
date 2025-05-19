@@ -145,12 +145,46 @@ export async function POST(req: Request) {
                    - Space nodes evenly to prevent overlap
                 8. Each quest must have:
                    - Clear, actionable objectives
-                   - Multiple learning resources (at least 3)
+                   - Multiple learning resources (at least 3) from these categories:
+                     * Official Documentation (e.g., Unity Docs, Unreal Docs, MDN Web Docs)
+                     * Popular Learning Platforms (e.g., Udemy, Coursera, Pluralsight)
+                     * Verified YouTube Channels (e.g., Brackeys, Code Monkey, Extra Credits)
+                     * GitHub Repositories (with active maintenance and good documentation)
+                     * Official Tutorials (from engine creators or major platforms)
+                     * Community Forums (e.g., Unity Forums, Stack Overflow)
                    - Specific verification criteria
                    - Estimated completion time
                    - Difficulty level
                    - Prerequisites (if any)
                 
+                IMPORTANT: For resources, you MUST:
+                1. Use only well-known, reliable sources
+                2. Include a mix of free and paid resources
+                3. Prioritize official documentation and tutorials
+                4. Include at least one practical project or exercise
+                5. Verify that the resources are still active and maintained
+                6. Provide specific URLs to exact pages/tutorials, not just domain names
+                7. Include resources that are appropriate for the skill level
+                8. Add a brief description of what each resource covers
+                
+                Example of good resource structure:
+                {
+                  "resources": [
+                    {
+                      "title": "Unity Official 2D Game Development Tutorial",
+                      "url": "https://learn.unity.com/project/2d-game-kit",
+                      "type": "Official Tutorial",
+                      "description": "Complete 2D game development tutorial from Unity, covering basic mechanics and physics"
+                    },
+                    {
+                      "title": "Game Design Fundamentals - Extra Credits",
+                      "url": "https://www.youtube.com/playlist?list=PLhyKYa0YJ_5Aq7g4bil7bnGi0A8gTsawu",
+                      "type": "Video Series",
+                      "description": "Comprehensive series on game design principles and best practices"
+                    }
+                  ]
+                }
+
                 IMPORTANT: The response MUST follow this EXACT structure:
                 {
                   "skillTree": {
