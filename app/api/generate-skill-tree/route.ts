@@ -151,40 +151,53 @@ export async function POST(req: Request) {
                    - Difficulty level
                    - Prerequisites (if any)
                 
-                Node Structure (REQUIRED fields):
+                IMPORTANT: The response MUST follow this EXACT structure:
                 {
-                  "id": "unique-string-id",
-                  "title": "Clear, specific title",
-                  "description": "Detailed explanation",
-                  "level": 0, // 0=beginner, 1=intermediate, 2=advanced
-                  "position": {"x": number, "y": number}, // x: -500 to 500, y: 0 to 1000
-                  "parentIds": ["parent-node-id"],
-                  "color": "#34D399",
-                  "xp": 100,
-                  "type": "theory",
-                  "quests": [
-                    {
-                      "id": "quest-1",
-                      "title": "Quest title",
-                      "description": "Detailed instructions",
-                      "objectives": ["Objective 1", "Objective 2"],
-                      "resources": [
-                        {
-                          "title": "Resource title",
-                          "url": "https://example.com",
-                          "type": "Tutorial",
-                          "description": "What you'll learn from this resource"
-                        }
-                      ],
-                      "verification": "How to verify completion",
-                      "estimatedTime": "2-3 hours",
-                      "difficulty": "Beginner",
-                      "prerequisites": ["Prerequisite 1"]
-                    }
-                  ]
+                  "skillTree": {
+                    "title": "string",
+                    "description": "string",
+                    "nodes": [
+                      {
+                        "id": "string",
+                        "title": "string",
+                        "description": "string",
+                        "level": 0, // 0=beginner, 1=intermediate, 2=advanced
+                        "position": {"x": number, "y": number}, // x: -500 to 500, y: 0 to 1000
+                        "parentIds": ["string"], // MUST have at least one parent except root
+                        "color": "#34D399",
+                        "xp": 100,
+                        "type": "theory",
+                        "quests": [
+                          {
+                            "id": "quest-1",
+                            "title": "Quest title",
+                            "description": "Detailed instructions",
+                            "objectives": ["Objective 1", "Objective 2"],
+                            "resources": [
+                              {
+                                "title": "Resource title",
+                                "url": "https://example.com",
+                                "type": "Tutorial",
+                                "description": "What you'll learn from this resource"
+                              }
+                            ],
+                            "verification": "How to verify completion",
+                            "estimatedTime": "2-3 hours",
+                            "difficulty": "Beginner",
+                            "prerequisites": ["Prerequisite 1"]
+                          }
+                        ]
+                      }
+                    ]
+                  }
                 }
+
+                DO NOT use any other structure. The response MUST be a JSON object with a "skillTree" property containing:
+                1. title (string)
+                2. description (string)
+                3. nodes (array of nodes with ALL required fields)
                 
-                IMPORTANT: Every node MUST have ALL of these fields:
+                Each node MUST have ALL of these fields:
                 - id (string)
                 - title (string)
                 - description (string)
@@ -196,10 +209,7 @@ export async function POST(req: Request) {
                 - type (string)
                 - quests (array of quest objects with ALL required fields)
                 
-                Return your response as a JSON object with a "skillTree" property containing:
-                1. title (string)
-                2. description (string)
-                3. nodes (array of nodes with ALL required fields)`
+                DO NOT use "children" or any other structure. Use "parentIds" to define relationships.`
             },
             {
                 role: "user",
@@ -217,7 +227,7 @@ export async function POST(req: Request) {
         console.log("Skill Tree Response:", JSON.stringify(skillTreeResponse, null, 2))
 
         if (!skillTreeResponse.skillTree) {
-            throw new Error("Invalid skill tree response format")
+            throw new Error("Invalid skill tree response format: missing skillTree property")
         }
 
         // Validate the skill tree structure
@@ -225,6 +235,19 @@ export async function POST(req: Request) {
         if (!tree.title || !tree.description || !Array.isArray(tree.nodes) || tree.nodes.length === 0) {
             console.error("Invalid skill tree structure:", tree)
             throw new Error("Invalid skill tree structure: missing required properties")
+        }
+
+        // Validate each node
+        for (const node of tree.nodes) {
+            if (!node.id || !node.title || !node.description ||
+                typeof node.level !== 'number' ||
+                !node.position || typeof node.position.x !== 'number' || typeof node.position.y !== 'number' ||
+                !Array.isArray(node.parentIds) ||
+                !node.color || !node.xp || !node.type ||
+                !Array.isArray(node.quests)) {
+                console.error("Invalid node structure:", node)
+                throw new Error(`Invalid node structure: node ${node.id || 'unknown'} is missing required properties`)
+            }
         }
 
         return NextResponse.json({ skillTree: tree })
