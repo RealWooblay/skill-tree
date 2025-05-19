@@ -11,7 +11,34 @@ import { Switch } from "@/components/ui/switch"
 import { Slider } from "@/components/ui/slider"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { getSoundSettings, updateSoundSettings } from "@/utils/sound"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+
+// Sound settings utility functions
+const getSoundSettings = () => {
+  const savedSettings = localStorage.getItem("soundSettings")
+  if (savedSettings) {
+    try {
+      return JSON.parse(savedSettings)
+    } catch (error) {
+      console.error("Error parsing sound settings:", error)
+    }
+  }
+  return { enabled: true, volume: 80 }
+}
+
+const updateSoundSettings = (enabled: boolean, volume: number) => {
+  localStorage.setItem("soundSettings", JSON.stringify({ enabled, volume }))
+}
 
 export default function SettingsPage() {
   // Settings state
@@ -54,6 +81,16 @@ export default function SettingsPage() {
     if (setting === 'soundVolume') {
       updateSoundSettings(settings.soundEffects, newValue)
     }
+  }
+
+  const handleResetProgress = () => {
+    // Clear all skill tree data
+    localStorage.removeItem("skillTrees")
+    localStorage.removeItem("completedQuests")
+    localStorage.removeItem("skillTreeResponses")
+
+    // Reload the page to reflect changes
+    window.location.href = "/"
   }
 
   return (
@@ -128,9 +165,27 @@ export default function SettingsPage() {
                   <h3 className="text-sm font-medium">Reset Progress</h3>
                   <p className="text-xs text-muted-foreground">Reset all your skill tree progress and start over</p>
                 </div>
-                <Button variant="destructive" size="sm">
-                  Reset
-                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm">
+                      Reset
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="bg-card border-primary/20">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently delete all your skill trees and progress. This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleResetProgress} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                        Reset Progress
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </div>
           </CardContent>

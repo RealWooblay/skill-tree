@@ -9,7 +9,7 @@ import { ParticleBackground } from "@/components/particles"
 import { Navigation } from "@/components/navigation"
 import { SkillTreeSelector, type SkillTreeInfo } from "@/components/skill-tree-selector"
 import { NodeCompletionAnimation } from "@/components/node-completion-animation"
-import { generateQuests } from "@/utils/generateQuests" // Import generateQuests
+import { LoadingBar } from "@/components/loading-bar"
 
 // Add type definitions at the top
 type NodeType = "default" | "theory" | "practical" | "test"
@@ -31,513 +31,143 @@ interface SkillNode {
   color: string
   xp: number
   type: NodeType
+  category: string
 }
 
 interface Quest {
   id: string
-  nodeId: string
   title: string
   description: string
+  nodeId: string
   completed: boolean
+  resources: { title: string; url: string; type: string }[]
 }
 
 interface CompletedQuestsMap {
   [key: string]: boolean
 }
 
-// Update the initialNodes to include node types
-const initialNodes = [
-  {
-    id: "root",
-    title: "Core Skills",
-    description: "The foundation of your growth journey",
-    level: 0,
-    position: { x: 500, y: 100 },
-    completed: true,
-    locked: false,
-    parentIds: [],
-    color: "#9333EA", // primary
-    xp: 50,
-    type: "default",
-  },
-  {
-    id: "mindfulness",
-    title: "Mindfulness",
-    description: "Develop awareness and presence",
-    level: 1,
-    position: { x: 350, y: 200 },
-    completed: false,
-    locked: false,
-    parentIds: ["root"],
-    color: "#00FFFF", // secondary
-    xp: 100,
-    type: "theory",
-  },
-  {
-    id: "productivity",
-    title: "Productivity",
-    description: "Optimize your workflow and focus",
-    level: 1,
-    position: { x: 650, y: 200 },
-    completed: false,
-    locked: false,
-    parentIds: ["root"],
-    color: "#00FFFF", // secondary
-    xp: 100,
-    type: "theory",
-  },
-  {
-    id: "meditation",
-    title: "Meditation",
-    description: "Daily meditation practice",
-    level: 2,
-    position: { x: 250, y: 300 },
-    completed: false,
-    locked: false,
-    parentIds: ["mindfulness"],
-    color: "#34D399", // accent
-    xp: 150,
-    type: "practical",
-  },
-  {
-    id: "journaling",
-    title: "Journaling",
-    description: "Reflect and process thoughts",
-    level: 2,
-    position: { x: 450, y: 300 },
-    completed: false,
-    locked: false,
-    parentIds: ["mindfulness"],
-    color: "#34D399", // accent
-    xp: 150,
-    type: "practical",
-  },
-  {
-    id: "time-blocking",
-    title: "Time Blocking",
-    description: "Schedule focused work periods",
-    level: 2,
-    position: { x: 550, y: 300 },
-    completed: false,
-    locked: false,
-    parentIds: ["productivity"],
-    color: "#34D399", // accent
-    xp: 150,
-    type: "practical",
-  },
-  {
-    id: "deep-work",
-    title: "Deep Work",
-    description: "Eliminate distractions for flow",
-    level: 2,
-    position: { x: 750, y: 300 },
-    completed: false,
-    locked: false,
-    parentIds: ["productivity"],
-    color: "#34D399", // accent
-    xp: 150,
-    type: "practical",
-  },
-  {
-    id: "advanced-meditation",
-    title: "Advanced Meditation",
-    description: "Extended meditation sessions",
-    level: 3,
-    position: { x: 200, y: 400 },
-    completed: false,
-    locked: true,
-    parentIds: ["meditation"],
-    color: "#F472B6", // pink
-    xp: 200,
-    type: "test",
-  },
-  {
-    id: "habit-stacking",
-    title: "Habit Stacking",
-    description: "Build compound habits",
-    level: 3,
-    position: { x: 350, y: 400 },
-    completed: false,
-    locked: true,
-    parentIds: ["journaling", "time-blocking"],
-    color: "#F472B6", // pink
-    xp: 200,
-    type: "theory",
-  },
-  {
-    id: "flow-state",
-    title: "Flow State",
-    description: "Achieve optimal performance",
-    level: 3,
-    position: { x: 650, y: 400 },
-    completed: false,
-    locked: true,
-    parentIds: ["deep-work"],
-    color: "#F472B6", // pink
-    xp: 200,
-    type: "test",
-  },
-  {
-    id: "digital-minimalism",
-    title: "Digital Minimalism",
-    description: "Reduce digital distractions",
-    level: 3,
-    position: { x: 800, y: 400 },
-    completed: false,
-    locked: true,
-    parentIds: ["deep-work"],
-    color: "#F472B6", // pink
-    xp: 200,
-    type: "theory",
-  },
-]
+const getQuestsFromAI = (node: SkillNode): Quest[] => {
+  const storedSkillTrees = localStorage.getItem("skillTrees")
+  if (!storedSkillTrees) return []
 
-// Add a second skill tree for programming skills
-const programmingNodes = [
-  {
-    id: "prog-root",
-    title: "Programming Basics",
-    description: "The foundation of programming skills",
-    level: 0,
-    position: { x: 500, y: 100 },
-    completed: true,
-    locked: false,
-    parentIds: [],
-    color: "#9333EA", // primary
-    xp: 50,
-    type: "default",
-  },
-  {
-    id: "html-css",
-    title: "HTML & CSS",
-    description: "Web structure and styling",
-    level: 1,
-    position: { x: 350, y: 200 },
-    completed: false,
-    locked: false,
-    parentIds: ["prog-root"],
-    color: "#00FFFF", // secondary
-    xp: 100,
-    type: "theory",
-  },
-  {
-    id: "javascript",
-    title: "JavaScript",
-    description: "Web interactivity and logic",
-    level: 1,
-    position: { x: 650, y: 200 },
-    completed: false,
-    locked: false,
-    parentIds: ["prog-root"],
-    color: "#00FFFF", // secondary
-    xp: 100,
-    type: "theory",
-  },
-  {
-    id: "responsive-design",
-    title: "Responsive Design",
-    description: "Mobile-friendly layouts",
-    level: 2,
-    position: { x: 250, y: 300 },
-    completed: false,
-    locked: false,
-    parentIds: ["html-css"],
-    color: "#34D399", // accent
-    xp: 150,
-    type: "practical",
-  },
-  {
-    id: "css-frameworks",
-    title: "CSS Frameworks",
-    description: "Bootstrap, Tailwind, etc.",
-    level: 2,
-    position: { x: 450, y: 300 },
-    completed: false,
-    locked: false,
-    parentIds: ["html-css"],
-    color: "#34D399", // accent
-    xp: 150,
-    type: "practical",
-  },
-  {
-    id: "dom-manipulation",
-    title: "DOM Manipulation",
-    description: "Dynamic HTML updates",
-    level: 2,
-    position: { x: 550, y: 300 },
-    completed: false,
-    locked: false,
-    parentIds: ["javascript"],
-    color: "#34D399", // accent
-    xp: 150,
-    type: "practical",
-  },
-  {
-    id: "es6-features",
-    title: "ES6+ Features",
-    description: "Modern JavaScript",
-    level: 2,
-    position: { x: 750, y: 300 },
-    completed: false,
-    locked: false,
-    parentIds: ["javascript"],
-    color: "#34D399", // accent
-    xp: 150,
-    type: "practical",
-  },
-  {
-    id: "sass",
-    title: "Sass/SCSS",
-    description: "CSS preprocessors",
-    level: 3,
-    position: { x: 200, y: 400 },
-    completed: false,
-    locked: true,
-    parentIds: ["responsive-design"],
-    color: "#F472B6", // pink
-    xp: 200,
-    type: "test",
-  },
-  {
-    id: "component-design",
-    title: "Component Design",
-    description: "Reusable UI components",
-    level: 3,
-    position: { x: 350, y: 400 },
-    completed: false,
-    locked: true,
-    parentIds: ["css-frameworks", "dom-manipulation"],
-    color: "#F472B6", // pink
-    xp: 200,
-    type: "theory",
-  },
-  {
-    id: "async-js",
-    title: "Async JavaScript",
-    description: "Promises and async/await",
-    level: 3,
-    position: { x: 650, y: 400 },
-    completed: false,
-    locked: true,
-    parentIds: ["es6-features"],
-    color: "#F472B6", // pink
-    xp: 200,
-    type: "test",
-  },
-  {
-    id: "frontend-frameworks",
-    title: "Frontend Frameworks",
-    description: "React, Vue, Angular",
-    level: 3,
-    position: { x: 800, y: 400 },
-    completed: false,
-    locked: true,
-    parentIds: ["es6-features"],
-    color: "#F472B6", // pink
-    xp: 200,
-    type: "theory",
-  },
-]
+  try {
+    const skillTrees = JSON.parse(storedSkillTrees)
+    const skillTree = skillTrees[skillTrees.length - 1]
+    if (!skillTree?.nodes) return []
 
-// Add a third skill tree for language learning
-const languageNodes = [
-  {
-    id: "lang-root",
-    title: "Language Basics",
-    description: "The foundation of language learning",
-    level: 0,
-    position: { x: 500, y: 100 },
-    completed: true,
-    locked: false,
-    parentIds: [],
-    color: "#9333EA", // primary
-    xp: 50,
-    type: "default",
-  },
-  {
-    id: "vocabulary",
-    title: "Vocabulary",
-    description: "Essential words and phrases",
-    level: 1,
-    position: { x: 350, y: 200 },
-    completed: false,
-    locked: false,
-    parentIds: ["lang-root"],
-    color: "#00FFFF", // secondary
-    xp: 100,
-    type: "theory",
-  },
-  {
-    id: "grammar",
-    title: "Grammar",
-    description: "Basic sentence structure",
-    level: 1,
-    position: { x: 650, y: 200 },
-    completed: false,
-    locked: false,
-    parentIds: ["lang-root"],
-    color: "#00FFFF", // secondary
-    xp: 100,
-    type: "theory",
-  },
-  {
-    id: "daily-phrases",
-    title: "Daily Phrases",
-    description: "Common expressions",
-    level: 2,
-    position: { x: 250, y: 300 },
-    completed: false,
-    locked: false,
-    parentIds: ["vocabulary"],
-    color: "#34D399", // accent
-    xp: 150,
-    type: "practical",
-  },
-  {
-    id: "flashcards",
-    title: "Flashcards",
-    description: "Spaced repetition practice",
-    level: 2,
-    position: { x: 450, y: 300 },
-    completed: false,
-    locked: false,
-    parentIds: ["vocabulary"],
-    color: "#34D399", // accent
-    xp: 150,
-    type: "practical",
-  },
-  {
-    id: "verb-conjugation",
-    title: "Verb Conjugation",
-    description: "Present tense mastery",
-    level: 2,
-    position: { x: 550, y: 300 },
-    completed: false,
-    locked: false,
-    parentIds: ["grammar"],
-    color: "#34D399", // accent
-    xp: 150,
-    type: "practical",
-  },
-  {
-    id: "sentence-structure",
-    title: "Sentence Structure",
-    description: "Building complex sentences",
-    level: 2,
-    position: { x: 750, y: 300 },
-    completed: false,
-    locked: false,
-    parentIds: ["grammar"],
-    color: "#34D399", // accent
-    xp: 150,
-    type: "practical",
-  },
-  {
-    id: "basic-conversation",
-    title: "Basic Conversation",
-    description: "Simple dialogues",
-    level: 3,
-    position: { x: 200, y: 400 },
-    completed: false,
-    locked: true,
-    parentIds: ["daily-phrases"],
-    color: "#F472B6", // pink
-    xp: 200,
-    type: "test",
-  },
-  {
-    id: "reading-practice",
-    title: "Reading Practice",
-    description: "Simple texts and stories",
-    level: 3,
-    position: { x: 350, y: 400 },
-    completed: false,
-    locked: true,
-    parentIds: ["flashcards", "verb-conjugation"],
-    color: "#F472B6", // pink
-    xp: 200,
-    type: "theory",
-  },
-  {
-    id: "past-tense",
-    title: "Past Tense",
-    description: "Talking about past events",
-    level: 3,
-    position: { x: 650, y: 400 },
-    completed: false,
-    locked: true,
-    parentIds: ["sentence-structure"],
-    color: "#F472B6", // pink
-    xp: 200,
-    type: "test",
-  },
-  {
-    id: "listening-comprehension",
-    title: "Listening Comprehension",
-    description: "Understanding native speakers",
-    level: 3,
-    position: { x: 800, y: 400 },
-    completed: false,
-    locked: true,
-    parentIds: ["sentence-structure"],
-    color: "#F472B6", // pink
-    xp: 200,
-    type: "theory",
-  },
-]
+    const aiNode = skillTree.nodes.find((n: any) => n.id === node.id)
+    if (!aiNode?.quests) return []
 
-// Create skill tree info objects
-const skillTreeInfos: SkillTreeInfo[] = [
-  {
-    id: "personal-growth",
-    title: "Personal Growth",
-    description: "Develop mindfulness and productivity skills",
-    category: "Personal Growth",
-    lastUpdated: "Today",
-    nodeCount: initialNodes.length,
-    completedNodes: initialNodes.filter((node) => node.completed).length,
-  },
-  {
-    id: "programming",
-    title: "Web Development",
-    description: "Learn frontend web development skills",
-    category: "Professional Skills",
-    lastUpdated: "Yesterday",
-    nodeCount: programmingNodes.length,
-    completedNodes: programmingNodes.filter((node) => node.completed).length,
-  },
-  {
-    id: "language",
-    title: "Spanish Learning",
-    description: "Master Spanish language fundamentals",
-    category: "Languages",
-    lastUpdated: "3 days ago",
-    nodeCount: languageNodes.length,
-    completedNodes: languageNodes.filter((node) => node.completed).length,
-  },
-]
-
-// Update the skillTreeNodes type
-const skillTreeNodes: { [key: string]: SkillNode[] } = {
-  "personal-growth": initialNodes as SkillNode[],
-  programming: programmingNodes as SkillNode[],
-  language: languageNodes as SkillNode[],
+    return aiNode.quests.map((quest: any) => ({
+      id: quest.id,
+      title: quest.title,
+      description: quest.description,
+      nodeId: node.id,
+      completed: false,
+      resources: quest.resources || []
+    }))
+  } catch (error) {
+    console.error("Error loading quests from AI response:", error)
+    return []
+  }
 }
 
 export default function SkillTreePage() {
-  const [activeTreeId, setActiveTreeId] = useState("personal-growth")
-  const [nodes, setNodes] = useState<SkillNode[]>(skillTreeNodes[activeTreeId])
+  const [activeTreeId, setActiveTreeId] = useState("")
+  const [nodes, setNodes] = useState<SkillNode[]>([])
   const [selectedNode, setSelectedNode] = useState<SkillNode | null>(null)
   const [quests, setQuests] = useState<Quest[]>([])
-  const [xp, setXp] = useState(50) // Starting XP from completed root node
+  const [xp, setXp] = useState(0)
   const [level, setLevel] = useState(1)
-  const [maxXp, setMaxXp] = useState(200) // XP needed for level 2
-  const [skillTrees, setSkillTrees] = useState<SkillTreeInfo[]>(skillTreeInfos)
+  const [maxXp, setMaxXp] = useState(200)
+  const [skillTrees, setSkillTrees] = useState<SkillTreeInfo[]>([])
   const [completedNodeAnimation, setCompletedNodeAnimation] = useState<{
     visible: boolean
     nodeTitle: string
     xpGained: number
   }>({ visible: false, nodeTitle: "", xpGained: 0 })
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [generationProgress, setGenerationProgress] = useState(0)
+
+  // Load skill trees from localStorage on mount
+  useEffect(() => {
+    const storedSkillTrees = localStorage.getItem("skillTrees")
+    if (storedSkillTrees) {
+      try {
+        const skillTrees = JSON.parse(storedSkillTrees)
+        // Get the most recent skill tree
+        const skillTree = skillTrees[skillTrees.length - 1]
+        if (!skillTree) return
+
+        // Load completed nodes state
+        const nodes = skillTree.nodes || []
+        const completedNodes = nodes.filter((node: SkillNode) => node.completed).length
+
+        setNodes(nodes)
+        setActiveTreeId(skillTree.id)
+        setSkillTrees([{
+          id: skillTree.id,
+          title: skillTree.title || "Untitled Skill Tree",
+          description: skillTree.description || "No description available",
+          category: skillTree.category || "Uncategorized",
+          lastUpdated: skillTree.createdAt || new Date().toISOString(),
+          nodeCount: nodes.length,
+          completedNodes: completedNodes
+        }])
+      } catch (error) {
+        console.error("Error loading skill tree:", error)
+      }
+    }
+  }, [])
+
+  // Add effect to update nodes when active tree changes
+  useEffect(() => {
+    const storedSkillTrees = localStorage.getItem("skillTrees")
+    if (storedSkillTrees && activeTreeId) {
+      try {
+        const skillTrees = JSON.parse(storedSkillTrees)
+        const skillTree = skillTrees.find((tree: any) => tree.id === activeTreeId)
+        if (skillTree) {
+          setNodes(skillTree.nodes || [])
+          // Update the skill trees list with the correct title and description
+          setSkillTrees(prev => prev.map(tree =>
+            tree.id === activeTreeId ? {
+              ...tree,
+              title: skillTree.title || "Untitled Skill Tree",
+              description: skillTree.description || "No description available",
+              nodeCount: skillTree.nodes?.length || 0,
+              completedNodes: skillTree.nodes?.filter((node: any) => node.completed).length || 0
+            } : tree
+          ))
+        }
+      } catch (error) {
+        console.error("Error loading skill tree nodes:", error)
+      }
+    }
+  }, [activeTreeId])
+
+  // Add effect to update skill trees list when it changes
+  useEffect(() => {
+    const storedSkillTrees = localStorage.getItem("skillTrees")
+    if (storedSkillTrees) {
+      try {
+        const skillTrees = JSON.parse(storedSkillTrees)
+        const formattedTrees = skillTrees.map((tree: any) => ({
+          id: tree.id,
+          title: tree.title,
+          description: tree.description,
+          category: tree.category || "Uncategorized",
+          lastUpdated: tree.createdAt || new Date().toISOString(),
+          nodeCount: tree.nodes?.length || 0,
+          completedNodes: tree.nodes?.filter((node: any) => node.completed).length || 0
+        }))
+        setSkillTrees(formattedTrees)
+      } catch (error) {
+        console.error("Error updating skill trees:", error)
+      }
+    }
+  }, [])
 
   // Load completed quests from localStorage
   useEffect(() => {
@@ -546,7 +176,7 @@ export default function SkillTreePage() {
       try {
         const parsedQuests = JSON.parse(savedQuests) as CompletedQuestsMap
         setQuests(prevQuests => {
-          return prevQuests.map(quest => ({
+          return prevQuests.map((quest: Quest) => ({
             ...quest,
             completed: parsedQuests[quest.id] || false
           }))
@@ -560,16 +190,7 @@ export default function SkillTreePage() {
   // Initialize quests when a node is selected
   useEffect(() => {
     if (selectedNode) {
-      const savedQuests = localStorage.getItem('completedQuests')
-      const completedQuests = savedQuests ? JSON.parse(savedQuests) as CompletedQuestsMap : {}
-
-      const generatedQuests = generateQuests(selectedNode.id).map(quest => ({
-        ...quest,
-        nodeId: selectedNode.id, // Ensure nodeId is set
-        completed: completedQuests[quest.id] || false
-      })) as Quest[]
-
-      setQuests(generatedQuests)
+      initializeQuests(selectedNode)
     }
   }, [selectedNode])
 
@@ -586,78 +207,26 @@ export default function SkillTreePage() {
 
   // Handle quest completion
   const handleQuestComplete = (questId: string) => {
-    if (!selectedNode) return
+    setQuests((prevQuests) =>
+      prevQuests.map((q) =>
+        q.id === questId ? { ...q, completed: true } : q
+      )
+    )
 
-    setQuests((prevQuests) => {
-      const updatedQuests = prevQuests.map((quest) => {
-        if (quest.id === questId) {
-          return { ...quest, completed: true }
-        }
-        return quest
-      })
+    // Save completed quest to localStorage
+    const savedQuests = localStorage.getItem(`completedQuests-${selectedNode?.id}`)
+    const completedQuests = savedQuests ? JSON.parse(savedQuests) as CompletedQuestsMap : {}
+    completedQuests[questId] = true
+    localStorage.setItem(`completedQuests-${selectedNode?.id}`, JSON.stringify(completedQuests))
 
-      // Save to localStorage
-      saveCompletedQuests(updatedQuests)
+    // Check if all quests for this node are completed
+    const allQuestsCompleted = quests.every((q) => q.id === questId || q.completed)
+    if (allQuestsCompleted && selectedNode) {
+      handleNodeComplete(selectedNode.id)
+    }
 
-      // Check if all quests for this node are completed
-      const nodeQuests = updatedQuests.filter(quest => quest.nodeId === selectedNode.id)
-      const allQuestsCompleted = nodeQuests.length > 0 && nodeQuests.every(quest => quest.completed)
-
-      if (allQuestsCompleted) {
-        // Complete the node
-        setNodes(prevNodes => {
-          const updatedNodes = prevNodes.map(node => {
-            if (node.id === selectedNode.id) {
-              // Mark this node as completed
-              return { ...node, completed: true }
-            }
-
-            // Unlock child nodes if their parents are completed
-            if (node.locked && node.parentIds.includes(selectedNode.id)) {
-              const allParentsCompleted = node.parentIds.every(parentId => {
-                const parent = prevNodes.find(n => n.id === parentId)
-                return parent?.completed || parentId === selectedNode.id
-              })
-
-              if (allParentsCompleted) {
-                return { ...node, locked: false }
-              }
-            }
-
-            return node
-          })
-
-          // Update global state
-          skillTreeNodes[activeTreeId] = updatedNodes
-
-          // Update skill tree info
-          setSkillTrees(prev =>
-            prev.map(tree =>
-              tree.id === activeTreeId
-                ? { ...tree, completedNodes: tree.completedNodes + 1 }
-                : tree
-            )
-          )
-
-          return updatedNodes
-        })
-
-        // Add XP for completing the node
-        setXp(prev => prev + selectedNode.xp)
-
-        // Show completion animation
-        setCompletedNodeAnimation({
-          visible: true,
-          nodeTitle: selectedNode.title,
-          xpGained: selectedNode.xp,
-        })
-      }
-
-      // Add XP for completing the quest
-      setXp(prev => prev + 25)
-
-      return updatedQuests
-    })
+    // Add XP for completing quest
+    setXp((prev) => prev + 10)
   }
 
   // Calculate level based on XP
@@ -668,12 +237,6 @@ export default function SkillTreePage() {
       setMaxXp((newLevel + 1) * 200)
     }
   }, [xp, level])
-
-  // Update nodes when active tree changes
-  useEffect(() => {
-    setNodes(skillTreeNodes[activeTreeId])
-    setSelectedNode(null)
-  }, [activeTreeId])
 
   // Handle node selection
   const handleNodeSelect = (node: SkillNode) => {
@@ -722,6 +285,20 @@ export default function SkillTreePage() {
         prev.map((tree) => (tree.id === activeTreeId ? { ...tree, completedNodes: tree.completedNodes + 1 } : tree)),
       )
 
+      // Save updated nodes to localStorage
+      const storedSkillTrees = localStorage.getItem("skillTrees")
+      if (storedSkillTrees) {
+        try {
+          const trees = JSON.parse(storedSkillTrees)
+          const updatedTrees = trees.map((tree: any) =>
+            tree.id === activeTreeId ? { ...tree, nodes: updatedNodes } : tree
+          )
+          localStorage.setItem("skillTrees", JSON.stringify(updatedTrees))
+        } catch (error) {
+          console.error("Error saving node completion:", error)
+        }
+      }
+
       return updatedNodes
     })
   }
@@ -734,140 +311,112 @@ export default function SkillTreePage() {
   }
 
   // Handle creating a new skill tree
-  const handleCreateTree = (title: string, description: string, category: string) => {
-    // Generate a unique ID
-    const id = `tree-${Date.now()}`
+  const handleCreateTree = async (title: string, description: string, category: string) => {
+    setIsGenerating(true)
+    setGenerationProgress(0)
 
-    // Create a new skill tree with default nodes
+    // Simulate progress
+    const interval = setInterval(() => {
+      setGenerationProgress((prev) => {
+        if (prev >= 100) {
+          clearInterval(interval)
+          return 100
+        }
+        return prev + 1
+      })
+    }, 50)
+
+    // Create the tree
+    const newTreeId = `tree-${Date.now()}`
     const newTree: SkillTreeInfo = {
-      id,
+      id: newTreeId,
       title,
       description,
       category,
-      lastUpdated: "Just now",
-      nodeCount: 1,
-      completedNodes: 1,
+      lastUpdated: new Date().toISOString(),
+      nodeCount: 0,
+      completedNodes: 0
     }
 
-    // Add basic root node
-    const rootNode: SkillNode = {
-      id: `${id}-root`,
-      title: "Getting Started",
-      description: "The foundation of your journey",
-      level: 0,
-      position: { x: 500, y: 100 },
-      completed: true,
-      locked: false,
-      parentIds: [],
-      color: "#9333EA",
-      xp: 50,
-      type: "default" as NodeType,
-    }
+    // Create initial nodes
+    const newNodes: SkillNode[] = [
+      {
+        id: `${newTreeId}-root`,
+        title: "Root",
+        description: "Starting point",
+        level: 0,
+        position: { x: 0, y: 0 },
+        completed: false,
+        locked: false,
+        parentIds: [],
+        color: "#4f46e5",
+        xp: 50,
+        type: "default",
+        category
+      }
+    ]
 
-    const newNodes = [rootNode]
-
-    // Update skill tree nodes
-    skillTreeNodes[id] = newNodes
-
-    // Update skill trees
-    setSkillTrees((prev) => [...prev, newTree])
-
-    // Switch to the new tree
-    setActiveTreeId(id)
-  }
-
-  // Add useEffect to check for new skill tree responses on page load
-  useEffect(() => {
-    // Check if there are new skill tree responses in localStorage
-    const storedResponses = localStorage.getItem("skillTreeResponses")
-    if (storedResponses) {
+    // Add additional nodes based on AI response
+    const aiResponse = localStorage.getItem("newSkillTreeResponse")
+    if (aiResponse) {
       try {
-        const responses = JSON.parse(storedResponses)
+        const response = JSON.parse(aiResponse)
+        const nodes = response.nodes || []
 
-        // Generate a new skill tree based on the responses
-        const newTreeTitle = responses[0] || "New Skill Tree"
-        const category = responses[1] || "Personal Growth"
+        nodes.forEach((node: any, index: number) => {
+          const nodeType = node.type || "default"
+          const nodeId = `${newTreeId}-node-${index + 1}`
 
-        // Only create a new tree if we have valid responses
-        if (newTreeTitle.trim()) {
-          // Generate a unique ID
-          const id = `tree-${Date.now()}`
-
-          // Create a new skill tree
-          const newTree: SkillTreeInfo = {
-            id,
-            title: newTreeTitle,
-            description: `Skills related to ${newTreeTitle}`,
-            category,
-            lastUpdated: "Just now",
-            nodeCount: 1,
-            completedNodes: 1,
-          }
-
-          // Add basic root node
-          const rootNode: SkillNode = {
-            id: `${id}-root`,
-            title: "Getting Started",
-            description: `The foundation of your ${newTreeTitle} journey`,
-            level: 0,
-            position: { x: 500, y: 100 },
-            completed: true,
-            locked: false,
-            parentIds: [],
-            color: "#9333EA",
-            xp: 50,
-            type: "default" as NodeType,
-          }
-
-          skillTreeNodes[id] = [rootNode]
-
-          // Add some initial nodes based on the responses
-          if (responses.length > 2 && responses[2]) {
-            const skills = (responses[2] as string)
-              .split(",")
-              .map((s: string) => s.trim())
-              .filter(Boolean)
-
-            skills.slice(0, 3).forEach((skill: string, index: number) => {
-              const nodeId = `${id}-skill-${index}`
-              const nodeType: NodeType = index % 3 === 0 ? "theory" : index % 3 === 1 ? "practical" : "test"
-
-              const skillNode: SkillNode = {
-                id: nodeId,
-                title: skill,
-                description: `Learn and master ${skill}`,
-                level: 1,
-                position: { x: 350 + index * 150, y: 200 },
-                completed: false,
-                locked: false,
-                parentIds: [`${id}-root`],
-                color: "#00FFFF",
-                xp: 100,
-                type: nodeType,
-              }
-
-              skillTreeNodes[id].push(skillNode)
-            })
-
-            // Update node count
-            newTree.nodeCount = skillTreeNodes[id].length
-          }
-
-          // Update skill trees
-          setSkillTrees((prev) => [...prev, newTree])
-
-          // Switch to the new tree
-          setActiveTreeId(id)
-        }
-
-        // Clear the responses from localStorage
-        localStorage.removeItem("skillTreeResponses")
+          newNodes.push({
+            id: nodeId,
+            title: node.title || `Node ${index + 1}`,
+            description: node.description || "",
+            level: node.level || 1,
+            position: {
+              x: node.position?.x || Math.cos(index * Math.PI / 4) * 300,
+              y: node.position?.y || Math.sin(index * Math.PI / 4) * 300 + (node.level * 200)
+            },
+            completed: false,
+            locked: node.parentIds?.length > 0,
+            parentIds: node.parentIds || [`${newTreeId}-root`],
+            color: node.color || "#4f46e5",
+            xp: node.xp || 100,
+            type: nodeType,
+            category
+          })
+        })
       } catch (error) {
-        console.error("Error parsing skill tree responses:", error)
-        localStorage.removeItem("skillTreeResponses")
+        console.error("Error parsing AI response:", error)
       }
     }
-  }, [])
+
+    // Update state
+    setNodes(newNodes)
+    setSkillTrees((prev) => [...prev, newTree])
+    setActiveTreeId(newTreeId)
+
+    // Clear AI response
+    localStorage.removeItem("newSkillTreeResponse")
+
+    // Complete loading
+    setTimeout(() => {
+      setIsGenerating(false)
+      setGenerationProgress(0)
+    }, 500)
+  }
+
+  // Update where quests are initialized
+  const initializeQuests = (node: SkillNode) => {
+    const savedQuests = localStorage.getItem(`completedQuests-${node.id}`)
+    const completedQuests = savedQuests ? JSON.parse(savedQuests) as CompletedQuestsMap : {}
+
+    const aiQuests = getQuestsFromAI(node).map((quest) => ({
+      ...quest,
+      completed: completedQuests[quest.id] || false
+    }))
+
+    setQuests(aiQuests)
+  }
 
   return (
     <main className="flex min-h-screen flex-col relative">
@@ -889,7 +438,12 @@ export default function SkillTreePage() {
 
       {/* Skill Tree */}
       <div className="flex-1 w-full h-full">
-        <SkillTree nodes={nodes} onNodeSelect={handleNodeSelect} />
+        <SkillTree
+          nodes={nodes}
+          onNodeSelect={handleNodeSelect}
+          onNodeComplete={handleNodeComplete}
+          completedNodes={skillTrees.find(tree => tree.id === activeTreeId)?.completedNodes || 0}
+        />
       </div>
 
       {/* Quest Panel */}
@@ -917,6 +471,13 @@ export default function SkillTreePage() {
         xpGained={completedNodeAnimation.xpGained}
         onComplete={() => setCompletedNodeAnimation({ visible: false, nodeTitle: "", xpGained: 0 })}
       />
+
+      {isGenerating && (
+        <LoadingBar
+          progress={generationProgress}
+          message="Creating your skill tree..."
+        />
+      )}
     </main>
   )
 }

@@ -20,15 +20,18 @@ interface SkillNode {
   parentIds: string[]
   color: string
   xp: number
-  type: "theory" | "practical" | "test" | "default" // Add node type
+  type: "theory" | "practical" | "test" | "default"
+  category: string
 }
 
 interface SkillTreeProps {
   nodes: SkillNode[]
   onNodeSelect: (node: SkillNode) => void
+  onNodeComplete?: (nodeId: string) => void
+  completedNodes?: number
 }
 
-export function SkillTree({ nodes, onNodeSelect }: SkillTreeProps) {
+export function SkillTree({ nodes, onNodeSelect, onNodeComplete, completedNodes }: SkillTreeProps) {
   const [selectedNode, setSelectedNode] = useState<SkillNode | null>(null)
   const [xpBursts, setXpBursts] = useState<{ id: string; x: number; y: number; value: number }[]>([])
   const svgRef = useRef<SVGSVGElement>(null)
@@ -117,7 +120,14 @@ export function SkillTree({ nodes, onNodeSelect }: SkillTreeProps) {
               wrapperStyle={{ width: "100%", height: "100%" }}
               contentStyle={{ width: "100%", height: "100%" }}
             >
-              <svg ref={svgRef} width="100%" height="100%" viewBox="0 0 1000 600" className="bg-transparent">
+              <svg
+                ref={svgRef}
+                width="100%"
+                height="100%"
+                viewBox="-500 -300 2000 1200"
+                className="bg-transparent"
+                style={{ overflow: 'visible' }}
+              >
                 {/* Connections between nodes */}
                 {renderConnections()}
 

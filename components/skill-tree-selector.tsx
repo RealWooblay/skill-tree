@@ -1,12 +1,23 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Plus, ChevronRight, Folder, FolderOpen } from "lucide-react"
+import { Plus, ChevronRight, Folder, FolderOpen, GripVertical, Trash2 } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
+import { DragDropContext, Droppable, Draggable, DropResult, DroppableProvided, DraggableProvided } from "@hello-pangea/dnd"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 export interface SkillTreeInfo {
   id: string
@@ -25,12 +36,41 @@ interface SkillTreeSelectorProps {
   onCreateTree: (title: string, description: string, category: string) => void
 }
 
-export function SkillTreeSelector({ skillTrees, activeTreeId, onSelectTree, onCreateTree }: SkillTreeSelectorProps) {
+export function SkillTreeSelector({ skillTrees: initialSkillTrees, activeTreeId, onSelectTree, onCreateTree }: SkillTreeSelectorProps) {
   const [isOpen, setIsOpen] = useState(true)
-  const [newTreeTitle, setNewTreeTitle] = useState("")
-  const [newTreeDescription, setNewTreeDescription] = useState("")
-  const [newTreeCategory, setNewTreeCategory] = useState("Personal Growth")
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [categories, setCategories] = useState<string[]>([])
+  const [newCategory, setNewCategory] = useState("")
+  const [isAddingCategory, setIsAddingCategory] = useState(false)
+  const [treeToDelete, setTreeToDelete] = useState<SkillTreeInfo | null>(null)
+  const [skillTrees, setSkillTrees] = useState<SkillTreeInfo[]>(initialSkillTrees)
+  const router = useRouter()
+
+  // Load skill trees and categories from localStorage on mount and when initialSkillTrees changes
+  useEffect(() => {
+    const storedSkillTrees = localStorage.getItem("skillTrees")
+    if (storedSkillTrees) {
+      try {
+        const trees = JSON.parse(storedSkillTrees)
+        // Transform the trees to match SkillTreeInfo format
+        const formattedTrees = trees.map((tree: any) => ({
+          id: tree.id,
+          title: tree.title,
+          description: tree.description,
+          category: tree.category || "Uncategorized",
+          lastUpdated: tree.createdAt || new Date().toISOString(),
+          nodeCount: tree.nodes?.length || 0,
+          completedNodes: tree.nodes?.filter((node: any) => node.completed).length || 0
+        }))
+        setSkillTrees(formattedTrees)
+
+        // Extract unique categories from trees
+        const uniqueCategories = Array.from(new Set(formattedTrees.map((tree: SkillTreeInfo) => tree.category))) as string[]
+        setCategories(uniqueCategories)
+      } catch (error) {
+        console.error("Error loading skill trees:", error)
+      }
+    }
+  }, [initialSkillTrees])
 
   // Group skill trees by category
   const groupedTrees: Record<string, SkillTreeInfo[]> = {}
@@ -41,13 +81,104 @@ export function SkillTreeSelector({ skillTrees, activeTreeId, onSelectTree, onCr
     groupedTrees[tree.category].push(tree)
   })
 
-  const handleCreateTree = () => {
-    if (newTreeTitle.trim()) {
-      onCreateTree(newTreeTitle, newTreeDescription, newTreeCategory)
-      setNewTreeTitle("")
-      setNewTreeDescription("")
-      setIsDialogOpen(false)
+  const handleNewTreeClick = () => {
+    router.push("/")
+  }
+
+  const handleAddCategory = () => {
+    if (newCategory.trim() && !categories.includes(newCategory.trim())) {
+      setCategories([...categories, newCategory.trim()])
+      setNewCategory("")
+      setIsAddingCategory(false)
     }
+  }
+
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination) return
+
+    const { source, destination } = result
+    const treeId = result.draggableId
+    const sourceCategory = source.droppableId
+    const destCategory = destination.droppableId
+
+    // Find the tree being moved
+    const tree = skillTrees.find(t => t.id === treeId)
+    if (!tree) return
+
+    // Update the tree's category
+    const updatedTree = { ...tree, category: destCategory }
+
+    // Update the skill trees in localStorage
+    const storedSkillTrees = localStorage.getItem("skillTrees")
+    if (storedSkillTrees) {
+      try {
+        const trees = JSON.parse(storedSkillTrees)
+        const updatedSkillTrees = trees.map((t: any) =>
+          t.id === treeId ? { ...t, category: destCategory } : t
+        )
+        localStorage.setItem("skillTrees", JSON.stringify(updatedSkillTrees))
+
+        // Update the local state immediately
+        setSkillTrees(prevTrees =>
+          prevTrees.map(t => t.id === treeId ? updatedTree : t)
+        )
+
+        // Update the nodes in localStorage
+        const storedNodes = localStorage.getItem(`nodes-${treeId}`)
+        if (storedNodes) {
+          const nodes = JSON.parse(storedNodes)
+          const updatedNodes = nodes.map((node: any) => ({
+            ...node,
+            category: destCategory
+          }))
+          localStorage.setItem(`nodes-${treeId}`, JSON.stringify(updatedNodes))
+        }
+
+        // Update the state to reflect changes
+        onSelectTree(treeId)
+      } catch (error) {
+        console.error("Error updating skill tree category:", error)
+      }
+    }
+  }
+
+  const handleDeleteTree = (tree: SkillTreeInfo) => {
+    setTreeToDelete(tree)
+  }
+
+  const confirmDelete = () => {
+    if (!treeToDelete) return
+
+    // Remove from localStorage
+    const storedSkillTrees = localStorage.getItem("skillTrees")
+    if (storedSkillTrees) {
+      try {
+        const trees = JSON.parse(storedSkillTrees)
+        const updatedSkillTrees = trees.filter((t: SkillTreeInfo) => t.id !== treeToDelete.id)
+        localStorage.setItem("skillTrees", JSON.stringify(updatedSkillTrees))
+
+        // Also remove the nodes
+        localStorage.removeItem(`nodes-${treeToDelete.id}`)
+        localStorage.removeItem(`completedQuests-${treeToDelete.id}`)
+
+        // Update local state immediately
+        setSkillTrees(updatedSkillTrees)
+
+        // If this was the active tree, select another one or go to home
+        if (treeToDelete.id === activeTreeId) {
+          const nextTree = updatedSkillTrees[0]
+          if (nextTree) {
+            onSelectTree(nextTree.id)
+          } else {
+            router.push("/")
+          }
+        }
+      } catch (error) {
+        console.error("Error deleting skill tree:", error)
+      }
+    }
+
+    setTreeToDelete(null)
   }
 
   return (
@@ -78,90 +209,131 @@ export function SkillTreeSelector({ skillTrees, activeTreeId, onSelectTree, onCr
               className="overflow-hidden"
             >
               <div className="p-2 max-h-[calc(100vh-200px)] overflow-y-auto">
-                {Object.entries(groupedTrees).map(([category, trees]) => (
-                  <div key={category} className="mb-3">
-                    <h4 className="text-xs font-medium text-muted-foreground px-2 py-1">{category}</h4>
-                    <div className="space-y-1">
-                      {trees.map((tree) => (
-                        <button
-                          key={tree.id}
-                          className={cn(
-                            "w-full text-left px-3 py-2 text-sm rounded-md transition-colors",
-                            tree.id === activeTreeId ? "bg-primary/20 text-primary" : "hover:bg-background/50",
-                          )}
-                          onClick={() => onSelectTree(tree.id)}
-                        >
-                          <div className="font-medium">{tree.title}</div>
-                          <div className="text-xs text-muted-foreground mt-1">
-                            {tree.completedNodes}/{tree.nodeCount} nodes completed
+                <DragDropContext onDragEnd={handleDragEnd}>
+                  {categories.map((category) => (
+                    <div key={category} className="mb-3">
+                      <div className="flex items-center justify-between px-2 py-1">
+                        <h4 className="text-xs font-medium text-muted-foreground">{category}</h4>
+                        <span className="text-xs text-muted-foreground">
+                          {groupedTrees[category]?.length || 0}
+                        </span>
+                      </div>
+                      <Droppable droppableId={category}>
+                        {(provided: DroppableProvided) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                            className="space-y-1 min-h-[40px]"
+                          >
+                            {groupedTrees[category]?.map((tree, index) => (
+                              <Draggable key={tree.id} draggableId={tree.id} index={index}>
+                                {(provided: DraggableProvided) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    className={cn(
+                                      "w-full text-left px-3 py-2 text-sm rounded-md transition-colors flex items-center gap-2 group",
+                                      tree.id === activeTreeId ? "bg-primary/20 text-primary" : "hover:bg-background/50"
+                                    )}
+                                    onClick={() => onSelectTree(tree.id)}
+                                  >
+                                    <div {...provided.dragHandleProps} className="cursor-grab">
+                                      <GripVertical className="h-4 w-4 text-muted-foreground" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium text-white truncate">
+                                        {tree.title}
+                                      </p>
+                                      <div className="flex items-center mt-1">
+                                        <span className="text-xs text-gray-400">
+                                          {tree.completedNodes || 0} nodes completed
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleDeleteTree(tree)
+                                      }}
+                                    >
+                                      <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                  </div>
+                                )}
+                              </Draggable>
+                            ))}
+                            {provided.placeholder}
                           </div>
-                        </button>
-                      ))}
+                        )}
+                      </Droppable>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </DragDropContext>
 
-              <div className="p-2 border-t border-border">
-                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" size="sm" className="w-full border-dashed border-primary/40">
-                      <Plus className="h-4 w-4 mr-2" /> New Skill Tree
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="bg-card border-primary/20">
-                    <DialogHeader>
-                      <DialogTitle className="text-primary">Create New Skill Tree</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 py-2">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Title</label>
-                        <Input
-                          value={newTreeTitle}
-                          onChange={(e) => setNewTreeTitle(e.target.value)}
-                          placeholder="e.g., Programming Skills"
-                          className="bg-background/50"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Description</label>
-                        <Input
-                          value={newTreeDescription}
-                          onChange={(e) => setNewTreeDescription(e.target.value)}
-                          placeholder="Brief description of this skill tree"
-                          className="bg-background/50"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Category</label>
-                        <select
-                          value={newTreeCategory}
-                          onChange={(e) => setNewTreeCategory(e.target.value)}
-                          className="w-full h-10 px-3 py-2 bg-background/50 border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                        >
-                          <option>Personal Growth</option>
-                          <option>Professional Skills</option>
-                          <option>Health & Fitness</option>
-                          <option>Creative Skills</option>
-                          <option>Languages</option>
-                          <option>Custom</option>
-                        </select>
-                      </div>
+                {/* Action Buttons */}
+                <div className="mt-4 border-t border-border pt-4 space-y-2">
+                  {isAddingCategory ? (
+                    <div className="flex gap-2">
+                      <Input
+                        value={newCategory}
+                        onChange={(e) => setNewCategory(e.target.value)}
+                        placeholder="New category name"
+                        className="h-8 text-sm"
+                      />
                       <Button
-                        onClick={handleCreateTree}
-                        className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
-                        disabled={!newTreeTitle.trim()}
+                        size="sm"
+                        onClick={handleAddCategory}
+                        disabled={!newCategory.trim()}
                       >
-                        Create Skill Tree
+                        Add
                       </Button>
                     </div>
-                  </DialogContent>
-                </Dialog>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 border-dashed border-primary/40"
+                        onClick={() => setIsAddingCategory(true)}
+                      >
+                        <Plus className="h-4 w-4 mr-2" /> Category
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 border-dashed border-primary/40"
+                        onClick={handleNewTreeClick}
+                      >
+                        <Plus className="h-4 w-4 mr-2" /> Tree
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
       </motion.div>
+
+      <AlertDialog open={!!treeToDelete} onOpenChange={() => setTreeToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Skill Tree</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{treeToDelete?.title}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

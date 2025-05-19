@@ -12,6 +12,11 @@ interface Quest {
   title: string
   description: string
   completed: boolean
+  resources?: {
+    title: string
+    url: string
+    type: string
+  }[]
 }
 
 interface QuestPanelProps {
@@ -167,6 +172,56 @@ export function QuestPanel({
                   className="border-t border-border bg-background/30"
                 >
                   <div className="p-3 text-sm text-muted-foreground">{quest.description}</div>
+
+                  {/* Resource links - only show if they exist and have content */}
+                  {quest.resources && quest.resources.length > 0 && (
+                    <div className="px-3 pb-2">
+                      <h5 className="text-xs font-medium text-muted-foreground mb-2">RESOURCES</h5>
+                      <div className="space-y-2">
+                        {quest.resources.map((resource, index) => {
+                          // Skip if no URL
+                          if (!resource.url) return null;
+
+                          // Handle different resource types
+                          if (resource.type === "video" && resource.url.includes("youtube.com")) {
+                            // Extract video ID for thumbnail
+                            const videoId = resource.url.split("v=")[1]?.split("&")[0];
+                            return videoId ? (
+                              <a
+                                key={index}
+                                href={resource.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block text-xs text-secondary hover:text-secondary/80 transition-colors"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <img
+                                    src={`https://img.youtube.com/vi/${videoId}/mqdefault.jpg`}
+                                    alt={resource.title}
+                                    className="w-20 h-12 object-cover rounded"
+                                  />
+                                  <span>{resource.title}</span>
+                                </div>
+                              </a>
+                            ) : null;
+                          }
+
+                          // Default link display
+                          return (
+                            <a
+                              key={index}
+                              href={resource.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block text-xs text-secondary hover:text-secondary/80 transition-colors"
+                            >
+                              {resource.title}
+                            </a>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   {!quest.completed && (
                     <div className="p-3 pt-0 flex justify-end">

@@ -27,12 +27,7 @@ export async function POST(req: Request) {
 Guidelines for questions:
 1. Ask specific, targeted questions that will help understand the user's goals
 2. Questions should build upon previous answers
-3. Focus on gathering information about:
-   - Current experience level
-   - Specific areas of interest
-   - Learning preferences
-   - Time commitment
-   - Desired outcomes
+3. Focus on gathering information to build a comprehensive skill tree
 4. Keep questions concise and clear
 5. Avoid asking questions that have already been answered
 6. Adapt questions based on the user's responses
