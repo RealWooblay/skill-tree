@@ -5,24 +5,25 @@ import OpenAI from "openai"
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
     maxRetries: 3,
-    timeout: 60000, // 60 seconds
+    timeout: 120000, // 120 seconds
 })
 
-// Set maxDuration to 800 seconds for Vercel Pro plan
-export const maxDuration = 800
+// Set maxDuration to 300 seconds for Vercel Pro plan
+export const maxDuration = 300
 
 // Helper function to handle OpenAI API calls with retries
-async function callOpenAIWithRetry(messages: any[], maxRetries = 3) {
+async function callOpenAIWithRetry(messages: any[], model: string = "gpt-4-turbo-preview", maxRetries = 3) {
     let lastError;
     for (let i = 0; i <= maxRetries; i++) {
         try {
-            return await openai.chat.completions.create({
-                model: "gpt-4-turbo-preview",
+            const response = await openai.chat.completions.create({
+                model,
                 messages,
                 response_format: { type: "json_object" },
                 temperature: 0.7,
-                max_tokens: 2000
+                max_tokens: 4000 // Increased token limit
             });
+            return response;
         } catch (error) {
             lastError = error;
             console.error(`Attempt ${i + 1} failed:`, error);
@@ -60,8 +61,8 @@ export async function POST(req: Request) {
             )
         ].join("\n\n")
 
-        console.log("Making OpenAI API call...")
-        // First, determine if we need more information
+        console.log("Making OpenAI API call for questions...")
+        // First, determine if we need more information using GPT-3.5-turbo (faster)
         const needsMoreInfo = await callOpenAIWithRetry([
             {
                 role: "system",
@@ -93,52 +94,13 @@ export async function POST(req: Request) {
 
                 Return your response as a JSON object with either:
                 1. A "questions" array containing your follow-up questions, or
-                2. A "skillTree" object with the complete tree structure (ONLY after you have enough information)
-
-                The skillTree object must have:
-                {
-                  "title": "string",
-                  "description": "string",
-                  "nodes": [
-                    {
-                      "id": "string",
-                      "title": "string",
-                      "description": "string",
-                      "level": 0, // 0=beginner, 1=intermediate, 2=advanced
-                      "position": {"x": number, "y": number}, // x: -500 to 500, y: 0 to 1000
-                      "parentIds": ["string"], // MUST have at least one parent except root
-                      "color": "string",
-                      "xp": number,
-                      "type": "string",
-                      "quests": [
-                        {
-                          "id": "string",
-                          "title": "string",
-                          "description": "string",
-                          "objectives": ["string"],
-                          "resources": [
-                            {
-                              "title": "string",
-                              "url": "string",
-                              "type": "string",
-                              "description": "string"
-                            }
-                          ],
-                          "verification": "string",
-                          "estimatedTime": "string",
-                          "difficulty": "string",
-                          "prerequisites": ["string"]
-                        }
-                      ]
-                    }
-                  ]
-                }`
+                2. A "skillTree" object with the complete tree structure (ONLY after you have enough information)`
             },
             {
                 role: "user",
                 content: context
             }
-        ]);
+        ], "gpt-3.5-turbo");
 
         console.log("OpenAI API call successful")
         const responseContent = needsMoreInfo.choices[0].message.content
@@ -161,8 +123,8 @@ export async function POST(req: Request) {
             return NextResponse.json({ skillTree: response.skillTree })
         }
 
-        // Otherwise, generate the complete skill tree
-        console.log("Generating complete skill tree...")
+        // Otherwise, generate the complete skill tree using GPT-4
+        console.log("Generating complete skill tree with GPT-4...")
         const skillTree = await callOpenAIWithRetry([
             {
                 role: "system",
@@ -243,7 +205,7 @@ export async function POST(req: Request) {
                 role: "user",
                 content: context
             }
-        ]);
+        ], "gpt-4-turbo-preview");
 
         console.log("Skill tree generation successful")
         const skillTreeContent = skillTree.choices[0].message.content
