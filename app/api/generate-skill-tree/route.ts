@@ -41,7 +41,7 @@ export async function POST(req: Request) {
                     IMPORTANT: Your first response should ALWAYS be questions to gather more information. Ask whatever questions you think are relevant to understand the user's needs and create the best possible skill tree. Only generate a skill tree after you have enough information.
 
                     When generating a skill tree:
-                    1. Create 15-20 nodes minimum, covering beginner to advanced levels
+                    1. Create 20-30 nodes minimum, covering beginner to advanced levels
                     2. Every node MUST have at least one parent (except the root node)
                     3. Ensure logical progression and prerequisites
                     4. Mix theoretical and practical nodes
@@ -93,7 +93,7 @@ export async function POST(req: Request) {
             ],
             response_format: { type: "json_object" },
             temperature: 0.7,
-            max_tokens: 2000 // Reduced token limit for faster response
+            max_tokens: 4000
         })
 
         const responseContent = needsMoreInfo.choices[0].message.content
@@ -125,7 +125,7 @@ export async function POST(req: Request) {
                     content: `You are an expert skill tree generator. Create a detailed skill tree based on the following context.
                     
                     Requirements:
-                    1. Create 15-20 nodes covering beginner to advanced levels
+                    1. Create 20-30 nodes covering beginner to advanced levels
                     2. Include multiple branches for different learning paths
                     3. Mix theoretical and practical nodes
                     4. Add test nodes to verify understanding
@@ -155,7 +155,7 @@ export async function POST(req: Request) {
                               "type": "Tutorial"
                             }
                           ],
-                          "verification": "How to verify completion"
+                          "verification": "string"
                         }
                       ]
                     }
@@ -184,7 +184,7 @@ export async function POST(req: Request) {
             ],
             response_format: { type: "json_object" },
             temperature: 0.7,
-            max_tokens: 2000 // Reduced token limit for faster response
+            max_tokens: 4000
         })
 
         const skillTreeContent = skillTree.choices[0].message.content

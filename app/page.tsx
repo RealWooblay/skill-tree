@@ -88,6 +88,12 @@ export default function HomePage() {
     setError(null)
 
     try {
+      // Convert answers object to array format
+      const answersArray = Object.entries(answers).map(([question, answer]) => ({
+        question,
+        answer
+      }))
+
       const response = await fetch("/api/generate-skill-tree", {
         method: "POST",
         headers: {
@@ -95,7 +101,7 @@ export default function HomePage() {
         },
         body: JSON.stringify({
           prompt: currentAnswer,
-          answers: answers,
+          answers: answersArray,
         }),
       })
 
