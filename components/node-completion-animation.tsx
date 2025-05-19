@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
+import { playSound } from "@/utils/sound"
 
 interface NodeCompletionAnimationProps {
   isVisible: boolean
@@ -12,6 +13,9 @@ interface NodeCompletionAnimationProps {
 export function NodeCompletionAnimation({ isVisible, onComplete }: NodeCompletionAnimationProps) {
   useEffect(() => {
     if (isVisible) {
+      // Play completion sound
+      playSound('nodeComplete')
+
       // Create energy wave effect
       const energyWave = document.createElement("div")
       energyWave.style.position = "fixed"

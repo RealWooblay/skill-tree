@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { Bell, Volume2, VolumeX } from "lucide-react"
+import { Volume2, VolumeX } from "lucide-react"
 import { ParticleBackground } from "@/components/particles"
 import { Navigation } from "@/components/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,29 +11,49 @@ import { Switch } from "@/components/ui/switch"
 import { Slider } from "@/components/ui/slider"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { getSoundSettings, updateSoundSettings } from "@/utils/sound"
 
 export default function SettingsPage() {
   // Settings state
   const [settings, setSettings] = useState({
-    notifications: true,
     soundEffects: true,
     soundVolume: 80,
     resetProgress: false,
   })
 
+  // Load saved settings on mount
+  useEffect(() => {
+    const savedSettings = getSoundSettings()
+    setSettings(prev => ({
+      ...prev,
+      soundEffects: savedSettings.enabled,
+      soundVolume: savedSettings.volume,
+    }))
+  }, [])
+
   // Handle settings changes
   const handleToggle = (setting: keyof typeof settings) => {
-    setSettings((prev) => ({
+    const newValue = !settings[setting]
+    setSettings(prev => ({
       ...prev,
-      [setting]: !prev[setting],
+      [setting]: newValue,
     }))
+
+    if (setting === 'soundEffects') {
+      updateSoundSettings(newValue, settings.soundVolume)
+    }
   }
 
   const handleSliderChange = (setting: keyof typeof settings, value: number[]) => {
-    setSettings((prev) => ({
+    const newValue = value[0]
+    setSettings(prev => ({
       ...prev,
-      [setting]: value[0],
+      [setting]: newValue,
     }))
+
+    if (setting === 'soundVolume') {
+      updateSoundSettings(settings.soundEffects, newValue)
+    }
   }
 
   return (
@@ -54,20 +74,9 @@ export default function SettingsPage() {
 
         <Card className="bg-card/50 backdrop-blur-sm border-primary/20">
           <CardHeader>
-            <CardTitle className="text-lg text-secondary">Notifications</CardTitle>
+            <CardTitle className="text-lg text-secondary">Sound Settings</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Bell className="h-5 w-5 text-primary" />
-                <div>
-                  <Label className="text-sm font-medium">Push Notifications</Label>
-                  <p className="text-xs text-muted-foreground">Receive reminders and updates</p>
-                </div>
-              </div>
-              <Switch checked={settings.notifications} onCheckedChange={() => handleToggle("notifications")} />
-            </div>
-
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 {settings.soundEffects ? (
