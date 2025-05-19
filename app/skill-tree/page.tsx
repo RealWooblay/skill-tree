@@ -11,6 +11,26 @@ import { SkillTreeSelector, type SkillTreeInfo } from "@/components/skill-tree-s
 import { NodeCompletionAnimation } from "@/components/node-completion-animation"
 import { LoadingBar } from "@/components/loading-bar"
 
+// Helper functions for node positioning
+function calculateNodeX(index: number, level: number, totalNodes: number): number {
+  // Calculate how many nodes are at this level
+  const nodesAtLevel = Math.ceil(totalNodes / 3) // Assuming 3 levels max
+  const spacing = 400 // Horizontal spacing between nodes
+  const baseOffset = -((nodesAtLevel - 1) * spacing) / 2 // Center the nodes
+
+  // Add some randomness to prevent perfect alignment
+  const jitter = (Math.random() - 0.5) * 50
+
+  return baseOffset + (index * spacing) + jitter
+}
+
+function calculateNodeY(level: number): number {
+  const baseSpacing = 300 // Vertical spacing between levels
+  const jitter = (Math.random() - 0.5) * 30 // Small vertical jitter
+
+  return (level * baseSpacing) + jitter
+}
+
 // Add type definitions at the top
 type NodeType = "default" | "theory" | "practical" | "test"
 
@@ -362,6 +382,7 @@ export default function SkillTreePage() {
       try {
         const response = JSON.parse(aiResponse)
         const nodes = response.nodes || []
+        const totalNodes = nodes.length
 
         nodes.forEach((node: any, index: number) => {
           const nodeType = node.type || "default"
@@ -373,8 +394,8 @@ export default function SkillTreePage() {
             description: node.description || "",
             level: node.level || 1,
             position: {
-              x: node.position?.x || Math.cos(index * Math.PI / 4) * 300,
-              y: node.position?.y || Math.sin(index * Math.PI / 4) * 300 + (node.level * 200)
+              x: node.position?.x || calculateNodeX(index, node.level || 1, totalNodes),
+              y: node.position?.y || calculateNodeY(node.level || 1)
             },
             completed: false,
             locked: node.parentIds?.length > 0,

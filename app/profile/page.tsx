@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { GitBranch, Trophy, Clock, Zap, Star, BarChart3 } from "lucide-react"
 import { AvatarDisplay } from "@/components/avatar-display"
@@ -11,34 +11,114 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 
+interface SkillTree {
+  id: string
+  title: string
+  description: string
+  category: string
+  nodes: Array<{
+    id: string
+    title: string
+    description: string
+    level: number
+    completed: boolean
+    xp: number
+    type: string
+    category: string
+  }>
+}
+
 export default function ProfilePage() {
-  // Mock user data
-  const [userData] = useState({
+  const [userData, setUserData] = useState({
     name: "Skill Seeker",
-    level: 7,
-    xp: 1450,
-    maxXp: 1600,
-    joinedDate: "2 weeks ago",
-    completedSkills: 5,
-    totalSkills: 12,
-    streakDays: 8,
-    focusArea: "Productivity",
-    recentQuests: [
-      { id: "1", title: "Complete Deep Work session", date: "Today", xp: 25 },
-      { id: "2", title: "Journal reflection", date: "Yesterday", xp: 25 },
-      { id: "3", title: "Morning meditation", date: "2 days ago", xp: 25 },
-    ],
+    level: 1,
+    xp: 0,
+    maxXp: 200,
+    joinedDate: "Just now",
+    completedSkills: 0,
+    totalSkills: 0,
+    streakDays: 0,
+    focusArea: "No active focus",
+    recentQuests: [] as Array<{ id: string; title: string; date: string; xp: number }>,
     stats: [
-      { label: "Focus Minutes", value: 320, icon: Clock, color: "text-primary" },
-      { label: "Quests Completed", value: 14, icon: Trophy, color: "text-secondary" },
-      { label: "Current Streak", value: 8, icon: Zap, color: "text-accent" },
+      { label: "Focus Minutes", value: 0, icon: Clock, color: "text-primary" },
+      { label: "Quests Completed", value: 0, icon: Trophy, color: "text-secondary" },
+      { label: "Current Streak", value: 0, icon: Zap, color: "text-accent" },
     ],
-    skillDistribution: [
-      { category: "Mindfulness", percentage: 35 },
-      { category: "Productivity", percentage: 45 },
-      { category: "Learning", percentage: 20 },
-    ],
+    skillDistribution: [] as Array<{ category: string; percentage: number }>,
   })
+
+  useEffect(() => {
+    // Load skill trees from localStorage
+    const storedSkillTrees = localStorage.getItem("skillTrees")
+    if (!storedSkillTrees) return
+
+    try {
+      const skillTrees = JSON.parse(storedSkillTrees) as SkillTree[]
+      if (!skillTrees.length) return
+
+      // Calculate total XP and level
+      let totalXp = 0
+      let completedSkills = 0
+      let totalSkills = 0
+      const categoryCounts: { [key: string]: number } = {}
+      const completedCategoryCounts: { [key: string]: number } = {}
+      const recentQuests: Array<{ id: string; title: string; date: string; xp: number }> = []
+
+      skillTrees.forEach(tree => {
+        tree.nodes.forEach(node => {
+          totalSkills++
+          if (node.completed) {
+            completedSkills++
+            totalXp += node.xp
+            completedCategoryCounts[node.category] = (completedCategoryCounts[node.category] || 0) + 1
+            recentQuests.push({
+              id: node.id,
+              title: node.title,
+              date: "Recently",
+              xp: node.xp
+            })
+          }
+          categoryCounts[node.category] = (categoryCounts[node.category] || 0) + 1
+        })
+      })
+
+      // Calculate level based on XP
+      const level = Math.floor(totalXp / 200) + 1
+      const maxXp = level * 200
+
+      // Calculate skill distribution
+      const skillDistribution = Object.keys(categoryCounts).map(category => ({
+        category,
+        percentage: Math.round((completedCategoryCounts[category] || 0) / categoryCounts[category] * 100)
+      }))
+
+      // Get current focus area from active skill tree
+      const activeTreeId = localStorage.getItem("activeTreeId")
+      const activeTree = skillTrees.find(tree => tree.id === activeTreeId)
+      const focusArea = activeTree?.category || "No active focus"
+
+      // Update user data
+      setUserData(prev => ({
+        ...prev,
+        level,
+        xp: totalXp,
+        maxXp,
+        completedSkills,
+        totalSkills,
+        focusArea,
+        recentQuests: recentQuests.slice(0, 3), // Show only 3 most recent
+        stats: [
+          { label: "Focus Minutes", value: Math.floor(totalXp / 10), icon: Clock, color: "text-primary" },
+          { label: "Quests Completed", value: completedSkills, icon: Trophy, color: "text-secondary" },
+          { label: "Current Streak", value: Math.floor(completedSkills / 3), icon: Zap, color: "text-accent" },
+        ],
+        skillDistribution
+      }))
+    } catch (error) {
+      console.error("Error loading skill trees:", error)
+    }
+  }, [])
 
   return (
     <main className="flex min-h-screen flex-col relative">
@@ -139,7 +219,7 @@ export default function ProfilePage() {
                     <span className="text-sm font-medium">{userData.focusArea}</span>
                   </div>
                   <div className="mt-2 text-xs text-muted-foreground">
-                    You're currently focused on improving your productivity skills.
+                    You're currently focused on improving your {userData.focusArea.toLowerCase()} skills.
                   </div>
                 </div>
 
