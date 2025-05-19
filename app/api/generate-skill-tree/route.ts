@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server"
 import OpenAI from "openai"
 
-// Configure OpenAI with a longer timeout
+// Configure OpenAI with optimized settings
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
-    maxRetries: 3,
-    timeout: 40000, // 40 seconds
+    maxRetries: 2,
+    timeout: 25000, // 25 seconds
 })
 
-// Set maxDuration to 800 seconds (13.33 minutes) for Vercel Pro plan
+// Set maxDuration to 800 seconds for Vercel Pro plan
 export const maxDuration = 800
 
 export async function POST(req: Request) {
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
                     IMPORTANT: Your first response should ALWAYS be questions to gather more information. Ask whatever questions you think are relevant to understand the user's needs and create the best possible skill tree. Only generate a skill tree after you have enough information.
 
                     When generating a skill tree:
-                    1. Create 20-30 nodes minimum, covering beginner to advanced levels
+                    1. Create 15-20 nodes minimum, covering beginner to advanced levels
                     2. Every node MUST have at least one parent (except the root node)
                     3. Ensure logical progression and prerequisites
                     4. Mix theoretical and practical nodes
@@ -93,7 +93,7 @@ export async function POST(req: Request) {
             ],
             response_format: { type: "json_object" },
             temperature: 0.7,
-            max_tokens: 4000
+            max_tokens: 2000 // Reduced for faster response
         })
 
         const responseContent = needsMoreInfo.choices[0].message.content
@@ -116,97 +116,126 @@ export async function POST(req: Request) {
             return NextResponse.json({ skillTree: response.skillTree })
         }
 
-        // Otherwise, generate the complete skill tree
-        const skillTree = await openai.chat.completions.create({
-            model: "gpt-4-turbo-preview",
-            messages: [
-                {
-                    role: "system",
-                    content: `You are an expert skill tree generator. Create a detailed skill tree based on the following context.
-                    
-                    Requirements:
-                    1. Create 20-30 nodes covering beginner to advanced levels
-                    2. Include multiple branches for different learning paths
-                    3. Mix theoretical and practical nodes
-                    4. Add test nodes to verify understanding
-                    5. Provide detailed quests with real, working resource links
-                    6. Ensure logical progression and prerequisites
-                    
-                    Node Structure (REQUIRED fields):
-                    {
-                      "id": "unique-string-id",
-                      "title": "Clear, specific title",
-                      "description": "Detailed explanation",
-                      "level": 0, // 0=beginner, 1=intermediate, 2=advanced
-                      "position": {"x": 100, "y": 200},
-                      "parentIds": ["parent-node-id"],
-                      "color": "#34D399",
-                      "xp": 100,
-                      "type": "theory",
-                      "quests": [
+        // Create a TransformStream for streaming the response
+        const encoder = new TextEncoder()
+        const stream = new TransformStream()
+        const writer = stream.writable.getWriter()
+
+        // Start the skill tree generation process
+        const generateSkillTree = async () => {
+            try {
+                const skillTree = await openai.chat.completions.create({
+                    model: "gpt-4-turbo-preview",
+                    messages: [
                         {
-                          "id": "quest-1",
-                          "title": "Quest title",
-                          "description": "Detailed instructions",
-                          "resources": [
+                            role: "system",
+                            content: `You are an expert skill tree generator. Create a detailed skill tree based on the following context.
+                            
+                            Requirements:
+                            1. Create 15-20 nodes covering beginner to advanced levels
+                            2. Include multiple branches for different learning paths
+                            3. Mix theoretical and practical nodes
+                            4. Add test nodes to verify understanding
+                            5. Provide detailed quests with real, working resource links
+                            6. Ensure logical progression and prerequisites
+                            
+                            Node Structure (REQUIRED fields):
                             {
-                              "title": "Resource title",
-                              "url": "https://example.com",
-                              "type": "Tutorial"
+                              "id": "unique-string-id",
+                              "title": "Clear, specific title",
+                              "description": "Detailed explanation",
+                              "level": 0, // 0=beginner, 1=intermediate, 2=advanced
+                              "position": {"x": 100, "y": 200},
+                              "parentIds": ["parent-node-id"],
+                              "color": "#34D399",
+                              "xp": 100,
+                              "type": "theory",
+                              "quests": [
+                                {
+                                  "id": "quest-1",
+                                  "title": "Quest title",
+                                  "description": "Detailed instructions",
+                                  "resources": [
+                                    {
+                                      "title": "Resource title",
+                                      "url": "https://example.com",
+                                      "type": "Tutorial"
+                                    }
+                                  ],
+                                  "verification": "string"
+                                }
+                              ]
                             }
-                          ],
-                          "verification": "string"
+                            
+                            IMPORTANT: Every node MUST have ALL of these fields:
+                            - id (string)
+                            - title (string)
+                            - description (string)
+                            - level (number: 0, 1, or 2)
+                            - position (object with x and y numbers)
+                            - parentIds (array of strings)
+                            - color (string)
+                            - xp (number)
+                            - type (string)
+                            - quests (array of quest objects)
+                            
+                            Return your response as a JSON object with a "skillTree" property containing:
+                            1. title (string)
+                            2. description (string)
+                            3. nodes (array of nodes with ALL required fields)`
+                        },
+                        {
+                            role: "user",
+                            content: context
                         }
-                      ]
-                    }
-                    
-                    IMPORTANT: Every node MUST have ALL of these fields:
-                    - id (string)
-                    - title (string)
-                    - description (string)
-                    - level (number: 0, 1, or 2)
-                    - position (object with x and y numbers)
-                    - parentIds (array of strings)
-                    - color (string)
-                    - xp (number)
-                    - type (string)
-                    - quests (array of quest objects)
-                    
-                    Return your response as a JSON object with a "skillTree" property containing:
-                    1. title (string)
-                    2. description (string)
-                    3. nodes (array of nodes with ALL required fields)`
-                },
-                {
-                    role: "user",
-                    content: context
+                    ],
+                    response_format: { type: "json_object" },
+                    temperature: 0.7,
+                    max_tokens: 2000 // Reduced for faster response
+                })
+
+                const skillTreeContent = skillTree.choices[0].message.content
+                if (!skillTreeContent) {
+                    throw new Error("No content in OpenAI response")
                 }
-            ],
-            response_format: { type: "json_object" },
-            temperature: 0.7,
-            max_tokens: 4000
+
+                const skillTreeResponse = JSON.parse(skillTreeContent)
+                console.log("Skill Tree Response:", JSON.stringify(skillTreeResponse, null, 2))
+
+                if (!skillTreeResponse.skillTree) {
+                    throw new Error("Invalid skill tree response format")
+                }
+
+                // Validate the skill tree structure
+                const { skillTree: tree } = skillTreeResponse
+                if (!tree.title || !tree.description || !Array.isArray(tree.nodes) || tree.nodes.length === 0) {
+                    console.error("Invalid skill tree structure:", tree)
+                    throw new Error("Invalid skill tree structure: missing required properties")
+                }
+
+                // Write the final response
+                await writer.write(encoder.encode(JSON.stringify({ skillTree: tree })))
+                await writer.close()
+            } catch (error) {
+                console.error("Error in skill tree generation:", error)
+                await writer.write(encoder.encode(JSON.stringify({
+                    error: error instanceof Error ? error.message : "Failed to generate skill tree",
+                    details: error instanceof Error ? error.stack : undefined
+                })))
+                await writer.close()
+            }
+        }
+
+        // Start the generation process
+        generateSkillTree()
+
+        // Return the stream
+        return new Response(stream.readable, {
+            headers: {
+                'Content-Type': 'application/json',
+                'Transfer-Encoding': 'chunked'
+            }
         })
-
-        const skillTreeContent = skillTree.choices[0].message.content
-        if (!skillTreeContent) {
-            throw new Error("No content in OpenAI response")
-        }
-
-        const skillTreeResponse = JSON.parse(skillTreeContent)
-        console.log("Skill Tree Response:", JSON.stringify(skillTreeResponse, null, 2))
-
-        if (!skillTreeResponse.skillTree) {
-            throw new Error("Invalid skill tree response format")
-        }
-
-        // Validate the skill tree structure
-        const { skillTree: tree } = skillTreeResponse
-        if (!tree.title || !tree.description || !Array.isArray(tree.nodes) || tree.nodes.length === 0) {
-            console.error("Invalid skill tree structure:", tree)
-            throw new Error("Invalid skill tree structure: missing required properties")
-        }
-
-        return NextResponse.json({ skillTree: tree })
     } catch (error) {
         console.error("Error generating skill tree:", error)
 

@@ -87,6 +87,12 @@ export default function HomePage() {
     setIsThinking(true)
     setError(null)
 
+    // Add user's input to messages
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", content: currentAnswer }
+    ])
+
     try {
       // Convert answers object to array format
       const answersArray = Object.entries(answers).map(([question, answer]) => ({
@@ -110,7 +116,24 @@ export default function HomePage() {
         throw new Error(errorData.error || "Failed to generate skill tree")
       }
 
-      const data = await response.json()
+      // Handle streaming response
+      const reader = response.body?.getReader()
+      if (!reader) {
+        throw new Error("No response stream available")
+      }
+
+      let result = ""
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        // Convert the chunk to text
+        const chunk = new TextDecoder().decode(value)
+        result += chunk
+      }
+
+      // Parse the complete response
+      const data = JSON.parse(result)
       console.log("API Response:", data)
 
       if (data.questions) {
@@ -121,6 +144,8 @@ export default function HomePage() {
           { role: "assistant", content: data.questions[0] }
         ])
         setIsThinking(false)
+        // Clear the input after successful submission
+        setCurrentAnswer("")
         return
       }
 
