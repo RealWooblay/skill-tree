@@ -131,10 +131,10 @@ export async function POST(req: Request) {
                 content: `You are an expert skill tree generator. Create a detailed skill tree based on the following context.
                 
                 Requirements:
-                1. Create 30-40 nodes covering beginner to advanced levels
-                2. Create multiple parallel branches for different learning paths
+                1. Create AT LEAST 30-40 nodes covering beginner to advanced levels, you must make sure the tree is complete and has a good structure, you must make the tree have lots of branches and nodes
+                2. Create multiple parallel branches for different learning paths (at least 3-4 main branches)
                 3. Mix theoretical and practical nodes
-                4. Add test nodes to verify understanding
+                4. Add test nodes to verify understanding (at least 1 test node per branch)
                 5. Provide detailed quests with real, working resource links
                 6. Ensure logical progression and prerequisites
                 7. Position nodes to create a visually appealing tree structure:
@@ -209,7 +209,15 @@ export async function POST(req: Request) {
                 - type (string)
                 - quests (array of quest objects with ALL required fields)
                 
-                DO NOT use "children" or any other structure. Use "parentIds" to define relationships.`
+                DO NOT use "children" or any other structure. Use "parentIds" to define relationships.
+
+                IMPORTANT: You MUST create at least 30-40 nodes total, with:
+                - 3-4 main branches
+                - At least 8-10 nodes per branch
+                - Multiple levels of progression (beginner to advanced)
+                - Clear prerequisites and dependencies
+                - Detailed quests for each node
+                - Proper positioning to create a visually appealing tree`
             },
             {
                 role: "user",

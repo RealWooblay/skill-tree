@@ -136,7 +136,7 @@ export default function HomePage() {
       const data = JSON.parse(result)
       console.log("API Response:", data)
 
-      if (data.questions) {
+      if (data.questions && Array.isArray(data.questions)) {
         setFollowUpQuestions(data.questions)
         setCurrentQuestionIndex(0)
         setMessages((prev) => [
@@ -162,6 +162,8 @@ export default function HomePage() {
 
         // Redirect to skill tree page
         router.push("/skill-tree")
+      } else {
+        throw new Error("Invalid response format from API")
       }
     } catch (error) {
       console.error("Error generating skill tree:", error)
@@ -224,8 +226,37 @@ export default function HomePage() {
           throw new Error("Failed to generate skill tree")
         }
 
-        const data = await response.json()
+        // Handle streaming response
+        const reader = response.body?.getReader()
+        if (!reader) {
+          throw new Error("No response stream available")
+        }
+
+        let result = ""
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          // Convert the chunk to text
+          const chunk = new TextDecoder().decode(value)
+          result += chunk
+        }
+
+        // Parse the complete response
+        const data = JSON.parse(result)
         console.log("Final API Response:", data)
+
+        if (data.questions && Array.isArray(data.questions)) {
+          // If we get more questions, handle them
+          setFollowUpQuestions(data.questions)
+          setCurrentQuestionIndex(0)
+          setMessages((prev) => [
+            ...prev,
+            { role: "assistant", content: data.questions[0] }
+          ])
+          setIsThinking(false)
+          return
+        }
 
         if (data.skillTree) {
           console.log("Received skill tree, starting generation...")
