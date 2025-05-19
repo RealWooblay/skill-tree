@@ -8,8 +8,8 @@ const openai = new OpenAI({
     timeout: 40000, // 40 seconds
 })
 
-// Set maxDuration to 60 seconds (Vercel hobby plan limit)
-export const maxDuration = 60
+// Set maxDuration to 900 seconds (15 minutes) for Vercel Pro plan
+export const maxDuration = 900
 
 export async function POST(req: Request) {
     try {
