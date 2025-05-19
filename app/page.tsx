@@ -64,184 +64,78 @@ export default function HomePage() {
     inputRef.current?.focus()
   }, [messages])
 
+  const handleCreateTree = async (title: string, description: string, category: string) => {
+    const newTreeId = `tree-${Date.now()}`
+    const newTree = {
+      id: newTreeId,
+      title,
+      description,
+      category,
+      createdAt: new Date().toISOString(),
+      nodes: []
+    }
+
+    // Save to localStorage
+    const savedTrees = JSON.parse(localStorage.getItem("skillTrees") || "[]")
+    savedTrees.push(newTree)
+    localStorage.setItem("skillTrees", JSON.stringify(savedTrees))
+    localStorage.setItem("activeTreeId", newTreeId)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!currentAnswer.trim()) return
+    setIsThinking(true)
+    setError(null)
 
-    console.log("Starting handleSubmit with answer:", currentAnswer)
-    console.log("Current answers state:", answers)
+    try {
+      const response = await fetch("/api/generate-skill-tree", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt: currentAnswer,
+          answers: answers,
+        }),
+      })
 
-    // Add user's answer to messages
-    setMessages((prev) => [
-      ...prev,
-      { role: "user", content: currentAnswer },
-    ])
-
-    // Clear the input immediately
-    setCurrentAnswer("")
-
-    // Only start generating if we're not in the question-answering phase
-    if (followUpQuestions.length === 0) {
-      setIsThinking(true)
-      try {
-        const response = await fetch("/api/generate-skill-tree", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prompt: currentAnswer,
-            answers: Object.entries(answers).map(([question, answer]) => ({
-              question,
-              answer
-            }))
-          }),
-        })
-
-        if (!response.ok) {
-          throw new Error("Failed to generate skill tree")
-        }
-
-        const data = await response.json()
-        console.log("API Response:", data) // Debug log
-
-        // Check if we need to ask follow-up questions
-        if (data.questions && Array.isArray(data.questions)) {
-          console.log("Received questions:", data.questions)
-          setIsThinking(false)
-          setFollowUpQuestions(data.questions)
-          setCurrentQuestionIndex(0)
-
-          // Add the first question to messages
-          setMessages((prev) => [
-            ...prev,
-            { role: "assistant", content: data.questions[0] }
-          ])
-          return
-        }
-
-        // If we have a skill tree, start the generation process
-        if (data.skillTree) {
-          console.log("Received skill tree, starting generation...")
-          console.log("Skill tree data:", JSON.stringify(data.skillTree, null, 2))
-
-          // Add generation message
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: "assistant",
-              content: "Analyzing your responses and generating a personalized skill tree...",
-            },
-          ])
-
-          // Transform nodes to include UI properties
-          const transformedNodes = data.skillTree.nodes.map((node: any) => {
-            // Generate a unique ID if missing
-            const id = node.id || node.ID || `node-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-
-            // Ensure title and description exist
-            const title = node.title || node.Title || "Untitled Node"
-            const description = node.description || node.Description || "No description provided"
-
-            // Convert level to number if it's a string
-            const level = typeof node.level === 'string' || typeof node.Level === 'string'
-              ? (node.level || node.Level).toLowerCase() === 'beginner' ? 0
-                : (node.level || node.Level).toLowerCase() === 'intermediate' ? 1
-                  : (node.level || node.Level).toLowerCase() === 'advanced' ? 2
-                    : parseInt(node.level || node.Level) || 0
-              : typeof node.level === 'number' || typeof node.Level === 'number'
-                ? node.level || node.Level
-                : 0
-
-            // Ensure position is an object with x and y
-            const position = typeof node.position === 'object' && node.position !== null
-              ? { x: node.position.x || 0, y: node.position.y || 0 }
-              : typeof node.Position === 'object' && node.Position !== null
-                ? { x: node.Position.x || 0, y: node.Position.y || 0 }
-                : { x: 0, y: 0 }
-
-            // Ensure quests is an array with proper structure
-            const quests = Array.isArray(node.quests) || Array.isArray(node.Quests)
-              ? (node.quests || node.Quests).map((quest: any) => ({
-                id: quest.id || quest.ID || `quest-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                title: quest.title || quest.Title || quest.description || quest.Description || "Untitled Quest",
-                description: quest.description || quest.Description || "No description provided",
-                resources: Array.isArray(quest.resources || quest.Resources)
-                  ? (quest.resources || quest.Resources).map((resource: any) => ({
-                    title: resource.title || resource.Title || resource.url || "Untitled Resource",
-                    url: resource.url || "#",
-                    type: resource.type || resource.Type || "Resource"
-                  }))
-                  : [],
-                verification: quest.verification || quest.Verification || "Complete the quest to verify"
-              }))
-              : []
-
-            return {
-              id,
-              title,
-              description,
-              level,
-              position,
-              quests,
-              parentIds: Array.isArray(node.parentIds || node["Parent IDs"])
-                ? (node.parentIds || node["Parent IDs"])
-                : [],
-              color: node.color || node.Color || '#34D399',
-              xp: typeof node.xp === 'number' || typeof node.XP === 'number'
-                ? node.xp || node.XP
-                : 100,
-              type: node.type || node.Type || 'theory',
-              completed: false,
-              locked: level > 0
-            }
-          })
-
-          // Create proper skill tree structure
-          const newTree = {
-            id: Date.now().toString(),
-            title: data.skillTree.title || "Untitled Skill Tree",
-            description: data.skillTree.description || "No description provided",
-            nodes: transformedNodes,
-            createdAt: new Date().toISOString(),
-          }
-
-          // Save the skill tree
-          const savedTrees = JSON.parse(localStorage.getItem("skillTrees") || "[]")
-          console.log("Saving skill tree:", JSON.stringify(newTree, null, 2))
-          savedTrees.push(newTree)
-          localStorage.setItem("skillTrees", JSON.stringify(savedTrees))
-          localStorage.setItem("newSkillTreeResponse", JSON.stringify(newTree))
-
-          // Add completion message
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: "assistant",
-              content: "Skill tree generated successfully! Preparing your learning journey...",
-            },
-          ])
-
-          // Clear all states
-          setIsThinking(false)
-          setIsGenerating(false)
-          setFollowUpQuestions([])
-          setCurrentQuestionIndex(0)
-          setAnswers({})
-
-          // Redirect immediately
-          router.push("/skill-tree")
-        } else {
-          console.error("Invalid API response format:", data)
-          throw new Error("Invalid response format from API")
-        }
-      } catch (error) {
-        console.error("Error generating skill tree:", error)
-        setIsGenerating(false)
-        setIsThinking(false)
-        setError("Failed to generate skill tree. Please try again.")
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to generate skill tree")
       }
-    } else {
-      // We're in the question-answering phase, handle the answer
-      handleAnswer(currentAnswer)
+
+      const data = await response.json()
+      console.log("API Response:", data)
+
+      if (data.questions) {
+        setFollowUpQuestions(data.questions)
+        setCurrentQuestionIndex(0)
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: data.questions[0] }
+        ])
+        setIsThinking(false)
+        return
+      }
+
+      if (data.skillTree) {
+        // Save the skill tree response
+        localStorage.setItem("newSkillTreeResponse", JSON.stringify(data.skillTree))
+
+        // Create the skill tree
+        await handleCreateTree(
+          data.skillTree.title || "New Skill Tree",
+          data.skillTree.description || "A skill tree to help you learn and grow",
+          data.skillTree.category || "General"
+        )
+
+        // Redirect to skill tree page
+        router.push("/skill-tree")
+      }
+    } catch (error) {
+      console.error("Error generating skill tree:", error)
+      setError(error instanceof Error ? error.message : "Failed to generate skill tree")
+      setIsThinking(false)
     }
   }
 

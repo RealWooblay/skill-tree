@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server"
 import OpenAI from "openai"
 
+// Configure OpenAI with a longer timeout
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
+    maxRetries: 3,
+    timeout: 40000, // 40 seconds
 })
+
+// Increase the function timeout
+export const maxDuration = 300 // 5 minutes
 
 export async function POST(req: Request) {
     try {
@@ -85,7 +91,9 @@ export async function POST(req: Request) {
                     content: context
                 }
             ],
-            response_format: { type: "json_object" }
+            response_format: { type: "json_object" },
+            temperature: 0.7,
+            max_tokens: 4000
         })
 
         const responseContent = needsMoreInfo.choices[0].message.content
@@ -174,7 +182,9 @@ export async function POST(req: Request) {
                     content: context
                 }
             ],
-            response_format: { type: "json_object" }
+            response_format: { type: "json_object" },
+            temperature: 0.7,
+            max_tokens: 4000
         })
 
         const skillTreeContent = skillTree.choices[0].message.content
@@ -199,8 +209,14 @@ export async function POST(req: Request) {
         return NextResponse.json({ skillTree: tree })
     } catch (error) {
         console.error("Error generating skill tree:", error)
+
+        // Return a more specific error message
+        const errorMessage = error instanceof Error ? error.message : "Failed to generate skill tree"
         return NextResponse.json(
-            { error: "Failed to generate skill tree" },
+            {
+                error: errorMessage,
+                details: error instanceof Error ? error.stack : undefined
+            },
             { status: 500 }
         )
     }
