@@ -12,7 +12,7 @@ const openai = new OpenAI({
 export const maxDuration = 300
 
 // Helper function to handle OpenAI API calls with retries
-async function callOpenAIWithRetry(messages: any[], model: string = "gpt-4-turbo-preview", maxRetries = 3) {
+async function callOpenAIWithRetry(messages: any[], model: string = "gpt-4o-mini", maxRetries = 3) {
     let lastError;
     for (let i = 0; i <= maxRetries; i++) {
         try {
@@ -100,7 +100,7 @@ export async function POST(req: Request) {
                 role: "user",
                 content: context
             }
-        ], "gpt-3.5-turbo");
+        ], "gpt-4o-mini");
 
         console.log("OpenAI API call successful")
         const responseContent = needsMoreInfo.choices[0].message.content
@@ -257,7 +257,7 @@ export async function POST(req: Request) {
                 role: "user",
                 content: context
             }
-        ], "gpt-4-turbo-preview");
+        ], "gpt-4o-mini");
 
         console.log("Skill tree generation successful")
         const skillTreeContent = skillTree.choices[0].message.content
