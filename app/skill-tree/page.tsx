@@ -77,15 +77,21 @@ const getQuestsFromAI = (node: SkillNode): Quest[] => {
     if (!skillTree?.nodes) return []
 
     const aiNode = skillTree.nodes.find((n: any) => n.id === node.id)
-    if (!aiNode?.quests) return []
+    if (!aiNode?.quests) {
+      console.log("No quests found for node:", node.id, "Node data:", aiNode)
+      return []
+    }
 
-    return aiNode.quests.map((quest: any) => ({
-      id: quest.id,
-      title: quest.title,
-      description: quest.description,
+    // Ensure quests is an array
+    const quests = Array.isArray(aiNode.quests) ? aiNode.quests : [aiNode.quests]
+
+    return quests.map((quest: any) => ({
+      id: `${node.id}-${quest.id || Math.random().toString(36).substr(2, 9)}`,
+      title: quest.title || "Untitled Quest",
+      description: quest.description || "No description provided",
       nodeId: node.id,
       completed: false,
-      resources: quest.resources || []
+      resources: Array.isArray(quest.resources) ? quest.resources : []
     }))
   } catch (error) {
     console.error("Error loading quests from AI response:", error)
@@ -213,17 +219,20 @@ export default function SkillTreePage() {
       const savedQuests = localStorage.getItem(`completedQuests-${selectedNode.id}`)
       const completedQuests = savedQuests ? JSON.parse(savedQuests) as CompletedQuestsMap : {}
 
-      const aiQuests = getQuestsFromAI(selectedNode).map((quest) => ({
-        ...quest,
-        completed: completedQuests[quest.id] || false
-      }))
+      const aiQuests = getQuestsFromAI(selectedNode)
+      console.log("Loaded quests for node:", selectedNode.id, aiQuests)
 
-      // Only update if we have quests
       if (aiQuests.length > 0) {
-        setQuests(aiQuests)
+        const questsWithCompletion = aiQuests.map(quest => ({
+          ...quest,
+          completed: completedQuests[quest.id] || false
+        }))
+        setQuests(questsWithCompletion)
+      } else {
+        console.log("No quests found for node:", selectedNode.id)
+        setQuests([])
       }
     } else {
-      // Clear quests when no node is selected
       setQuests([])
     }
   }, [selectedNode])
@@ -236,14 +245,13 @@ export default function SkillTreePage() {
       )
 
       // Save completed quest to localStorage
-      const completedQuests = updatedQuests.reduce<CompletedQuestsMap>((acc, quest) => {
-        if (quest.completed) {
-          acc[quest.id] = true
-        }
-        return acc
-      }, {})
-
       if (selectedNode) {
+        const completedQuests = updatedQuests.reduce<CompletedQuestsMap>((acc, quest) => {
+          if (quest.completed) {
+            acc[quest.id] = true
+          }
+          return acc
+        }, {})
         localStorage.setItem(`completedQuests-${selectedNode.id}`, JSON.stringify(completedQuests))
       }
 
