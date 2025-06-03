@@ -210,40 +210,51 @@ export default function SkillTreePage() {
   // Initialize quests when a node is selected
   useEffect(() => {
     if (selectedNode) {
-      initializeQuests(selectedNode)
+      const savedQuests = localStorage.getItem(`completedQuests-${selectedNode.id}`)
+      const completedQuests = savedQuests ? JSON.parse(savedQuests) as CompletedQuestsMap : {}
+
+      const aiQuests = getQuestsFromAI(selectedNode).map((quest) => ({
+        ...quest,
+        completed: completedQuests[quest.id] || false
+      }))
+
+      // Only update if we have quests
+      if (aiQuests.length > 0) {
+        setQuests(aiQuests)
+      }
+    } else {
+      // Clear quests when no node is selected
+      setQuests([])
     }
   }, [selectedNode])
 
-  // Save completed quests to localStorage
-  const saveCompletedQuests = (updatedQuests: Quest[]) => {
-    const completedQuests = updatedQuests.reduce<CompletedQuestsMap>((acc, quest) => {
-      if (quest.completed) {
-        acc[quest.id] = true
-      }
-      return acc
-    }, {})
-    localStorage.setItem('completedQuests', JSON.stringify(completedQuests))
-  }
-
   // Handle quest completion
   const handleQuestComplete = (questId: string) => {
-    setQuests((prevQuests) =>
-      prevQuests.map((q) =>
+    setQuests((prevQuests) => {
+      const updatedQuests = prevQuests.map((q) =>
         q.id === questId ? { ...q, completed: true } : q
       )
-    )
 
-    // Save completed quest to localStorage
-    const savedQuests = localStorage.getItem(`completedQuests-${selectedNode?.id}`)
-    const completedQuests = savedQuests ? JSON.parse(savedQuests) as CompletedQuestsMap : {}
-    completedQuests[questId] = true
-    localStorage.setItem(`completedQuests-${selectedNode?.id}`, JSON.stringify(completedQuests))
+      // Save completed quest to localStorage
+      const completedQuests = updatedQuests.reduce<CompletedQuestsMap>((acc, quest) => {
+        if (quest.completed) {
+          acc[quest.id] = true
+        }
+        return acc
+      }, {})
 
-    // Check if all quests for this node are completed
-    const allQuestsCompleted = quests.every((q) => q.id === questId || q.completed)
-    if (allQuestsCompleted && selectedNode) {
-      handleNodeComplete(selectedNode.id)
-    }
+      if (selectedNode) {
+        localStorage.setItem(`completedQuests-${selectedNode.id}`, JSON.stringify(completedQuests))
+      }
+
+      // Check if all quests for this node are completed
+      const allQuestsCompleted = updatedQuests.every((q) => q.completed)
+      if (allQuestsCompleted && selectedNode) {
+        handleNodeComplete(selectedNode.id)
+      }
+
+      return updatedQuests
+    })
 
     // Add XP for completing quest
     setXp((prev) => prev + 10)
@@ -424,19 +435,6 @@ export default function SkillTreePage() {
       setIsGenerating(false)
       setGenerationProgress(0)
     }, 500)
-  }
-
-  // Update where quests are initialized
-  const initializeQuests = (node: SkillNode) => {
-    const savedQuests = localStorage.getItem(`completedQuests-${node.id}`)
-    const completedQuests = savedQuests ? JSON.parse(savedQuests) as CompletedQuestsMap : {}
-
-    const aiQuests = getQuestsFromAI(node).map((quest) => ({
-      ...quest,
-      completed: completedQuests[quest.id] || false
-    }))
-
-    setQuests(aiQuests)
   }
 
   return (

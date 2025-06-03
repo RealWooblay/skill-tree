@@ -223,6 +223,7 @@ export function QuestPanel({
                     </div>
                   )}
 
+                  {/* Complete button - show if quest is not completed */}
                   {!quest.completed && (
                     <div className="p-3 pt-0 flex justify-end">
                       <Button
