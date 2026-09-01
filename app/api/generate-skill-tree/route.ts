@@ -26,7 +26,7 @@ async function callOpenAIWithRetry(messages: any[], model: string = "gpt-4-turbo
             return response;
         } catch (error) {
             lastError = error;
-            console.error(`Attempt ${i + 1} failed:`, error);
+            console.error(`OpenAI request attempt ${i + 1} failed`);
             if (i === maxRetries) break;
             // Wait before retrying (exponential backoff)
             await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
@@ -37,15 +37,27 @@ async function callOpenAIWithRetry(messages: any[], model: string = "gpt-4-turbo
 
 export async function POST(req: Request) {
     try {
-        const { prompt, answers = [] } = await req.json()
-        console.log("Received request with prompt:", prompt)
+        const body = await req.json()
+        const prompt = typeof body?.prompt === "string" ? body.prompt.trim() : ""
+        const answers: unknown[] = Array.isArray(body?.answers) ? body.answers.slice(0, 20) : []
 
-        if (!prompt) {
+        if (!prompt || prompt.length > 2000) {
             return NextResponse.json(
-                { error: "Prompt is required" },
+                { error: "Prompt must be between 1 and 2,000 characters" },
                 { status: 400 }
             )
         }
+
+        const safeAnswers = answers
+            .filter((item: unknown): item is { question: string; answer: string } => {
+                if (!item || typeof item !== "object") return false
+                const value = item as Record<string, unknown>
+                return typeof value.question === "string" && typeof value.answer === "string"
+            })
+            .map(({ question, answer }) => ({
+                question: question.slice(0, 1000),
+                answer: answer.slice(0, 2000),
+            }))
 
         // Verify API key is present
         if (!process.env.OPENAI_API_KEY) {
@@ -56,12 +68,11 @@ export async function POST(req: Request) {
         // Build context from prompt and answers
         const context = [
             `Initial request: ${prompt}`,
-            ...answers.map(({ question, answer }: { question: string; answer: string }) =>
+            ...safeAnswers.map(({ question, answer }) =>
                 `Q: ${question}\nA: ${answer}`
             )
         ].join("\n\n")
 
-        console.log("Making OpenAI API call for questions...")
         // First, determine if we need more information using GPT-3.5-turbo (faster)
         const needsMoreInfo = await callOpenAIWithRetry([
             {
@@ -102,29 +113,24 @@ export async function POST(req: Request) {
             }
         ], "gpt-3.5-turbo");
 
-        console.log("OpenAI API call successful")
         const responseContent = needsMoreInfo.choices[0].message.content
         if (!responseContent) {
             throw new Error("No content in OpenAI response")
         }
 
         const response = JSON.parse(responseContent)
-        console.log("Initial API Response:", JSON.stringify(response, null, 2))
 
         // If the AI wants to ask more questions, let it
         if (response.questions && Array.isArray(response.questions) && response.questions.length > 0) {
-            console.log("Returning questions:", JSON.stringify(response.questions, null, 2))
             return NextResponse.json({ questions: response.questions })
         }
 
         // If the AI thinks it has enough information, let it generate the skill tree
         if (response.skillTree) {
-            console.log("AI generated skill tree directly:", JSON.stringify(response.skillTree, null, 2))
             return NextResponse.json({ skillTree: response.skillTree })
         }
 
         // Otherwise, generate the complete skill tree using GPT-4
-        console.log("Generating complete skill tree with GPT-4...")
         const skillTree = await callOpenAIWithRetry([
             {
                 role: "system",
@@ -259,14 +265,12 @@ export async function POST(req: Request) {
             }
         ], "gpt-4-turbo-preview");
 
-        console.log("Skill tree generation successful")
         const skillTreeContent = skillTree.choices[0].message.content
         if (!skillTreeContent) {
             throw new Error("No content in OpenAI response")
         }
 
         const skillTreeResponse = JSON.parse(skillTreeContent)
-        console.log("Skill Tree Response:", JSON.stringify(skillTreeResponse, null, 2))
 
         if (!skillTreeResponse.skillTree) {
             throw new Error("Invalid skill tree response format: missing skillTree property")
@@ -275,7 +279,6 @@ export async function POST(req: Request) {
         // Validate the skill tree structure
         const { skillTree: tree } = skillTreeResponse
         if (!tree.title || !tree.description || !Array.isArray(tree.nodes) || tree.nodes.length === 0) {
-            console.error("Invalid skill tree structure:", tree)
             throw new Error("Invalid skill tree structure: missing required properties")
         }
 
@@ -287,27 +290,15 @@ export async function POST(req: Request) {
                 !Array.isArray(node.parentIds) ||
                 !node.color || !node.xp || !node.type ||
                 !Array.isArray(node.quests)) {
-                console.error("Invalid node structure:", node)
                 throw new Error(`Invalid node structure: node ${node.id || 'unknown'} is missing required properties`)
             }
         }
 
         return NextResponse.json({ skillTree: tree })
     } catch (error) {
-        console.error("Error generating skill tree:", {
-            error,
-            message: error instanceof Error ? error.message : "Unknown error",
-            stack: error instanceof Error ? error.stack : undefined,
-            type: error instanceof Error ? error.constructor.name : typeof error
-        })
-
-        // Return a more specific error message
-        const errorMessage = error instanceof Error ? error.message : "Failed to generate skill tree"
+        console.error("Skill tree generation failed")
         return NextResponse.json(
-            {
-                error: errorMessage,
-                details: error instanceof Error ? error.stack : undefined
-            },
+            { error: "Failed to generate skill tree" },
             { status: 500 }
         )
     }

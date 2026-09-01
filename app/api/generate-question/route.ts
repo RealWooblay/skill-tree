@@ -9,8 +9,7 @@ export async function POST(req: Request) {
     try {
         const { messages } = await req.json()
 
-        if (!messages || !Array.isArray(messages)) {
-            console.error("No messages provided")
+        if (!messages || !Array.isArray(messages) || messages.length > 30) {
             return NextResponse.json(
                 { error: "No messages provided" },
                 { status: 400 }
@@ -46,10 +45,10 @@ Respond with a single question that will help gather the most relevant informati
 
         return NextResponse.json({ question })
     } catch (error) {
-        console.error("Error generating question:", error)
+        console.error("Question generation failed")
         return NextResponse.json(
-            { error: "Failed to generate question", details: error instanceof Error ? error.message : "Unknown error" },
+            { error: "Failed to generate question" },
             { status: 500 }
         )
     }
-} 
+}

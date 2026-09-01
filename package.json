@@ -1,5 +1,6 @@
 {
-  "name": "my-v0-project",
+  "name": "skill-tree",
+  "description": "AI-assisted learning planner with generated prerequisite graphs, quests, and local progress tracking.",
   "version": "0.1.0",
   "private": true,
   "scripts": {

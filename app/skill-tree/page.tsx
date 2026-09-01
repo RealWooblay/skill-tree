@@ -78,7 +78,6 @@ const getQuestsFromAI = (node: SkillNode): Quest[] => {
 
     const aiNode = skillTree.nodes.find((n: any) => n.id === node.id)
     if (!aiNode?.quests) {
-      console.log("No quests found for node:", node.id, "Node data:", aiNode)
       return []
     }
 
@@ -220,8 +219,6 @@ export default function SkillTreePage() {
       const completedQuests = savedQuests ? JSON.parse(savedQuests) as CompletedQuestsMap : {}
 
       const aiQuests = getQuestsFromAI(selectedNode)
-      console.log("Loaded quests for node:", selectedNode.id, aiQuests)
-
       if (aiQuests.length > 0) {
         const questsWithCompletion = aiQuests.map(quest => ({
           ...quest,
@@ -229,7 +226,6 @@ export default function SkillTreePage() {
         }))
         setQuests(questsWithCompletion)
       } else {
-        console.log("No quests found for node:", selectedNode.id)
         setQuests([])
       }
     } else {

@@ -134,7 +134,6 @@ export default function HomePage() {
 
       // Parse the complete response
       const data = JSON.parse(result)
-      console.log("API Response:", data)
 
       if (data.questions && Array.isArray(data.questions)) {
         setFollowUpQuestions(data.questions)
@@ -175,10 +174,6 @@ export default function HomePage() {
   const handleAnswer = async (answer: string) => {
     if (!answer.trim()) return
 
-    console.log("Handling answer:", answer)
-    console.log("Current question index:", currentQuestionIndex)
-    console.log("Total questions:", followUpQuestions.length)
-
     const currentQuestion = followUpQuestions[currentQuestionIndex]
 
     // Add user's answer to messages
@@ -193,12 +188,10 @@ export default function HomePage() {
     // Save the answer
     setAnswers(prev => {
       const newAnswers = { ...prev, [currentQuestion]: answer }
-      console.log("Updated answers:", newAnswers)
       return newAnswers
     })
 
     if (currentQuestionIndex < followUpQuestions.length - 1) {
-      console.log("Moving to next question")
       // Add next question to messages
       setMessages((prev) => [
         ...prev,
@@ -206,7 +199,6 @@ export default function HomePage() {
       ])
       setCurrentQuestionIndex(prev => prev + 1)
     } else {
-      console.log("All questions answered, proceeding with generation")
       setIsThinking(true)
       // All questions answered, proceed with generation
       try {
@@ -244,7 +236,6 @@ export default function HomePage() {
 
         // Parse the complete response
         const data = JSON.parse(result)
-        console.log("Final API Response:", data)
 
         if (data.questions && Array.isArray(data.questions)) {
           // If we get more questions, handle them
@@ -259,12 +250,8 @@ export default function HomePage() {
         }
 
         if (data.skillTree) {
-          console.log("Received skill tree, starting generation...")
-          console.log("Skill tree data:", JSON.stringify(data.skillTree, null, 2))
-
           // Validate skill tree structure
           if (!data.skillTree.title || !data.skillTree.description || !Array.isArray(data.skillTree.nodes)) {
-            console.error("Invalid skill tree structure:", data.skillTree)
             throw new Error("Invalid skill tree structure: missing required properties")
           }
 
@@ -357,7 +344,6 @@ export default function HomePage() {
 
           // Save the skill tree
           const savedTrees = JSON.parse(localStorage.getItem("skillTrees") || "[]")
-          console.log("Saving skill tree:", JSON.stringify(newTree, null, 2))
           savedTrees.push(newTree)
           localStorage.setItem("skillTrees", JSON.stringify(savedTrees))
           localStorage.setItem("newSkillTreeResponse", JSON.stringify(newTree))

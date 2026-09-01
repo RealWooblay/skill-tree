@@ -1,30 +1,52 @@
-# Dark theme design
+# Skill Tree
 
-*Automatically synced with your [v0.dev](https://v0.dev) deployments*
+An AI-assisted learning planner that turns an open-ended goal into a structured, visual progression of skills, prerequisites, resources, and practical quests.
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/wooblay-projects/v0-dark-theme-design)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/oEf92g1POEd)
+Skill Tree starts with a short clarifying dialogue, asks about the learner's goals and experience, and generates a branching roadmap from beginner foundations to advanced work. Progress, completed quests, and XP are kept locally in the browser.
 
-## Overview
+## What it demonstrates
 
-This repository will stay in sync with your deployed chats on [v0.dev](https://v0.dev).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.dev](https://v0.dev).
+- Multi-stage AI generation: clarification first, structured planning second
+- A graph-shaped learning model with prerequisite relationships
+- Interactive node exploration, quest tracking, unlocks, and XP progression
+- Defensive parsing and normalization of model-generated JSON
+- A server-side OpenAI integration that keeps the API key out of the browser
 
-## Deployment
+## Architecture
 
-Your project is live at:
+```text
+Learner goal and answers
+          |
+          v
+Next.js API routes ---> OpenAI chat completions
+          |                 |
+          +---- structured JSON response
+                            |
+                            v
+React skill-tree UI ---> browser localStorage
+```
 
-**[https://vercel.com/wooblay-projects/v0-dark-theme-design](https://vercel.com/wooblay-projects/v0-dark-theme-design)**
+The Next.js application contains both the React interface and server routes. The server builds context from the learner's answers and requests either follow-up questions or a complete skill-tree document. The client validates and normalizes that document before rendering the graph and storing local progress.
 
-## Build your app
+## Run locally
 
-Continue building your app on:
+Requirements: Node.js, npm, and an OpenAI API key.
 
-**[https://v0.dev/chat/projects/oEf92g1POEd](https://v0.dev/chat/projects/oEf92g1POEd)**
+```bash
+npm install
+cp .env.example .env.local
+npm run dev
+```
 
-## How It Works
+Add your key to `.env.local`, then open `http://localhost:3000`.
 
-1. Create and modify your project using [v0.dev](https://v0.dev)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+## Privacy and operational notes
+
+- `OPENAI_API_KEY` is read only by server routes and is not committed.
+- Learning goals and questionnaire answers are sent to OpenAI to generate the plan.
+- Skill trees and completion state are stored in browser `localStorage`; this prototype has no user database.
+- A production deployment would still need authentication, rate limiting, usage controls, model/schema upgrades, and stronger output validation.
+
+## Status
+
+This is a completed product prototype and is not under active development. It is published as an example of AI workflow design, structured generation, and interactive product engineering.
